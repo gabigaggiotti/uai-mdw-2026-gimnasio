@@ -1,19 +1,21 @@
-# Proyecto MDW 2026 — <NOMBRE DEL SISTEMA>
-
-> Reemplazá este bloque en la clase 1.
+# Proyecto MDW 2026 — Sistema de gestión para gimnasio
 
 **Equipo:**
 
-- Nombre Apellido — responsable del repositorio (creó el repo y tiene la cuenta de Vercel)
-- Nombre Apellido
-- Nombre Apellido
-- Nombre Apellido
+- Gabriele Gaggiotti — responsable del repositorio (creó el repo y tiene la cuenta de Vercel)
+- Ramiro Filippi
+- Agustin Faucetta
+- Lucas Jaime
 
-**Producción:** https://<tu-proyecto>.vercel.app
-**Problema que resuelve:** una oración.
-**Flujo principal:** una oración.
+**Producción:** https://uai-mdw-2026-gimnasio.vercel.app
 
----
+**Problema que resuelve:** Los gimnasios chicos coordinan las reservas de clases por WhatsApp o en papel, y terminan con clases sobrevendidas o socios que viajan hasta el gimnasio y se quedan sin lugar.
+
+**Flujo principal:** El cliente consulta la grilla, reserva un lugar en una clase con cupo disponible y recibe la confirmación; el administrador gestiona las clases, los profesores y los planes.
+
+**Roles:** Cliente (reserva y cancela) y Administrador (gestiona grilla, profesores y planes).
+
+**Stack:** Next.js (App Router) + TypeScript + Postgres (Supabase) + Prisma + Zod + Tailwind. Deploy en Vercel.
 
 ## Puesta en marcha
 
@@ -21,7 +23,7 @@ Requisitos: Node 20+, npm, y una base de datos: **Postgres** (Supabase) o **Mong
 
 ```bash
 npm install
-cp .env.example .env.local     # completar DATABASE_URL y AUTH_SECRET
+cp .env.example .env.local     # completar DATABASE_URL, DIRECT_URL y AUTH_SECRET
 npx prisma migrate dev --name init
 npm run db:seed
 npm run dev                       # http://localhost:3000
@@ -35,18 +37,23 @@ npx auth secret
 
 > Usen **npm** en todo el equipo y commiteen el `package-lock.json`. Si alguien instala con otro gestor aparece un segundo lockfile y las instalaciones dejan de ser reproducibles.
 
+> **Los que se suman después:** la base ya está creada y migrada. Pedile las dos connection strings al responsable del repo (por privado, nunca al repo), pegalas en tu `.env.local` y corré solo `npm install` y `npx prisma generate`. No corras la migración.
+
+> **En Windows**, si `npm` falla con "la ejecución de scripts está deshabilitada":
+> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+
 ## Comandos
 
-| Comando | Para qué |
-|---|---|
-| `npm run dev` | Levantar en desarrollo |
-| `npm run build` | Build de producción (lo mismo que corre Vercel) |
-| `npm run lint` | Lint |
-| `npm run typecheck` | Chequeo de tipos sin emitir |
-| `npm test` | Tests |
-| `npx prisma migrate dev` | Crear y aplicar una migración |
-| `npx prisma studio` | Ver y editar los datos a mano |
-| `npm run db:seed` | Cargar datos de ejemplo |
+| Comando                  | Para qué                                        |
+| ------------------------ | ----------------------------------------------- |
+| `npm run dev`            | Levantar en desarrollo                          |
+| `npm run build`          | Build de producción (lo mismo que corre Vercel) |
+| `npm run lint`           | Lint                                            |
+| `npm run typecheck`      | Chequeo de tipos sin emitir                     |
+| `npm test`               | Tests                                           |
+| `npx prisma migrate dev` | Crear y aplicar una migración                   |
+| `npx prisma studio`      | Ver y editar los datos a mano                   |
+| `npm run db:seed`        | Cargar datos de ejemplo                         |
 
 ## Estructura
 
