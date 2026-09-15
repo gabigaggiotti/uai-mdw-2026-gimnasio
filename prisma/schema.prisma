@@ -1,10 +1,10 @@
 // Modelo de datos del proyecto.
 //
-// Lo que hay acá abajo es un EJEMPLO MÍNIMO para que el proyecto arranque.
-// En la clase 3 lo reemplazan por el modelo de su propio dominio.
+// Reemplaza el ejemplo mínimo del template (Usuario + Nota) por el
+// dominio del gimnasio, definido en docs/spec.md.
 //
 // Después de cualquier cambio en este archivo:
-//   npx prisma migrate dev --name <descripcion-del-cambio>
+//   npx prisma migrate dev --name modelo-gimnasio
 
 generator client {
   provider = "prisma-client-js"
@@ -13,58 +13,232 @@ generator client {
 datasource db {
   provider = "postgresql"
 
-  // Vercel es serverless, así que hacen falta dos conexiones distintas:
-  //   DATABASE_URL → el pooler, que la app usa en cada request
-  //   DIRECT_URL   → la conexión directa, que usan las migraciones
-  // Con una sola funciona en clase y se cae en producción por agotar
-  // las conexiones de Postgres.
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-// ¿El equipo eligió MongoDB? Se cambia el provider a "mongodb", se usa una
-// connection string de MongoDB Atlas y se sincroniza con `prisma db push`
-// en lugar de `prisma migrate dev`. El resto del proyecto no cambia.
-// Ojo: con Mongo los ids llevan @map("_id") @db.ObjectId y la integridad
-// referencial la garantiza el código, no la base.
-
 enum Rol {
-  ADMIN
-  USUARIO
+  CLIENTE
+  PROFESOR
+  ADMINISTRADOR
+}
+
+enum DiaSemana {
+  LUNES
+  MARTES
+  MIERCOLES
+  JUEVES
+  VIERNES
+  SABADO
+  DOMINGO
+}
+
+enum EstadoReserva {
+  CONFIRMADA
+  CANCELADA
+  ASISTIO
+}
+
+enum EstadoSuscripcion {
+  ACTIVA
+  VENCIDA
+  CANCELADA
+}
+
+enum ModoPago {
+  EFECTIVO
+  TARJETA
+  TRANSFERENCIA
+}
+
+enum EstadoRutina {
+  ACTIVA
+  INACTIVA
+}
+
+enum Gravedad {
+  LEVE
+  MODERADA
+  GRAVE
+}
+
+enum EstadoLesion {
+  ACTIVA
+  RECUPERADA
 }
 
 model Usuario {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  nombre    String
-  rol       Rol      @default(USUARIO)
-  creadoEn  DateTime @default(now())
+  id       String   @id @default(cuid())
+  email    String   @unique
+  nombre   String
+  rol      Rol      @default(CLIENTE)
+  creadoEn DateTime @default(now())
 
-  notas     Nota[]
+  // Perfil de profesor, solo presente si rol = PROFESOR.
+  profesor Profesor?
+
+  reservas      Reserva[]
+  suscripciones Suscripcion[]
+  lesiones      Lesion[]
+  rutinas       Rutina[]
 }
 
-// Entidad de ejemplo: bórrenla en la clase 3.
-// Muestra el patrón de una relación 1-N con su índice.
-model Nota {
-  id            String   @id @default(cuid())
-  titulo        String
-  contenido     String
-  creadaEn      DateTime @default(now())
-  actualizadaEn DateTime @updatedAt
+// Datos propios del rol PROFESOR. Va aparte de Usuario en vez de como
+// columnas nullable ahí, porque especialidad/telefono no tienen sentido
+// para un CLIENTE o un ADMINISTRADOR.
+model Profesor {
+  id     String @id @default(cuid())
+  // Ondelete Cascade: el perfil de profesor no tiene sentido sin la cuenta
+  // de usuario que lo sostiene, a diferencia de una Clase o una Reserva
+  // que sí son historial.
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId String  @unique
 
-  // `onDelete` NO tiene un valor por defecto razonable: se decide relación por
-  // relación. Acá va Cascade porque una nota sin autor no significa nada, así
-  // que borrar la cuenta se lleva sus notas.
-  //
-  // En su dominio esa respuesta suele ser la contraria: lo que es historia
-  // —una aplicación de vacuna, un movimiento, un comprobante— va con Restrict,
-  // porque dar de baja a una persona no puede borrar el registro de lo que
-  // pasó. La pregunta para cada relación es: "si borro esto, ¿qué otra cosa
-  // tiene sentido que desaparezca?".
-  autor         Usuario  @relation(fields: [autorId], references: [id], onDelete: Cascade)
-  autorId       String
+  especialidad String
+  telefono     String?
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
 
-  // Índice sobre la foreign key: sin esto, listar las notas de un usuario
-  // obliga a Postgres a recorrer la tabla entera.
-  @@index([autorId])
+  clases Clase[]
+
+  @@index([usuarioId])
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  nombre          String
+  descripcion     String
+  precio          Decimal
+  duracionDias    Int
+  clasesPorSemana Int?
+  activo          Boolean  @default(true)
+
+  suscripciones Suscripcion[]
+}
+
+model Clase {
+  id         String    @id @default(cuid())
+  nombre     String
+  disciplina String
+  // Restrict: si un profesor tiene clases asignadas, no se lo puede borrar
+  // sin antes reasignar o dar de baja esas clases.
+  profesor   Profesor  @relation(fields: [profesorId], references: [id], onDelete: Restrict)
+  profesorId String
+  diaSemana  DiaSemana
+  horaInicio String
+  horaFin    String
+  cupoMaximo Int
+  salon      String?
+  activa     Boolean   @default(true)
+
+  reservas Reserva[]
+
+  @@index([profesorId])
+}
+
+model Reserva {
+  id          String        @id @default(cuid())
+  // Restrict en ambas relaciones: una reserva es historial de lo que pasó,
+  // no se borra al dar de baja al cliente ni al desactivar la clase.
+  cliente     Usuario       @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  clienteId   String
+  clase       Clase         @relation(fields: [claseId], references: [id], onDelete: Restrict)
+  claseId     String
+  fecha       DateTime
+  estado      EstadoReserva @default(CONFIRMADA)
+  creadaEn    DateTime      @default(now())
+  canceladaEn DateTime?
+
+  @@index([clienteId])
+  @@index([claseId])
+}
+
+model Suscripcion {
+  id          String            @id @default(cuid())
+  cliente     Usuario           @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  clienteId   String
+  plan        Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  planId      String
+  fechaInicio DateTime
+  fechaFin    DateTime
+  estado      EstadoSuscripcion @default(ACTIVA)
+  creadaEn    DateTime          @default(now())
+
+  cuotas Cuota[]
+
+  @@index([clienteId])
+  @@index([planId])
+}
+
+// Cada pago se registra acá. Es historial puro: nunca se edita ni se
+// borra una cuota ya creada. Pagarla es lo que en el código extiende
+// fechaFin de la Suscripcion asociada — esa regla vive en lib/db, no
+// en el schema.
+model Cuota {
+  id                     String      @id @default(cuid())
+  suscripcion            Suscripcion @relation(fields: [suscripcionId], references: [id], onDelete: Restrict)
+  suscripcionId          String
+  fechaPago              DateTime
+  modoPago               ModoPago
+  monto                  Decimal
+  periodoCorrespondiente String
+
+  @@index([suscripcionId])
+}
+
+model Lesion {
+  id             String       @id @default(cuid())
+  cliente        Usuario      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  clienteId      String
+  descripcion    String
+  zonaAfectada   String
+  fechaRegistro  DateTime     @default(now())
+  gravedad       Gravedad
+  estado         EstadoLesion @default(ACTIVA)
+  observaciones  String?
+
+  @@index([clienteId])
+}
+
+model Rutina {
+  id        String       @id @default(cuid())
+  cliente   Usuario      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  clienteId String
+  nombre    String
+  // Solo una rutina por cliente debería estar ACTIVA a la vez. Prisma no
+  // fuerza esa unicidad: se valida en lib/db/rutinas.ts antes de escribir.
+  estado    EstadoRutina @default(INACTIVA)
+  creadaEn  DateTime     @default(now())
+
+  ejercicios RutinaEjercicio[]
+
+  @@index([clienteId])
+}
+
+model Ejercicio {
+  id            String  @id @default(cuid())
+  nombre        String
+  grupoMuscular String
+  descripcion   String?
+
+  rutinas RutinaEjercicio[]
+}
+
+// La relación N-N entre Rutina y Ejercicio tiene atributos propios
+// (series, repeticiones, orden), así que es una entidad con nombre y
+// no una relación simple.
+model RutinaEjercicio {
+  id           String    @id @default(cuid())
+  // Cascade: esta fila no significa nada sin la rutina que la contiene.
+  rutina       Rutina    @relation(fields: [rutinaId], references: [id], onDelete: Cascade)
+  rutinaId     String
+  // Restrict: no se puede borrar del catálogo un ejercicio que está en uso.
+  ejercicio    Ejercicio @relation(fields: [ejercicioId], references: [id], onDelete: Restrict)
+  ejercicioId  String
+  series       Int
+  repeticiones Int
+  orden        Int
+
+  @@index([rutinaId])
+  @@index([ejercicioId])
 }
