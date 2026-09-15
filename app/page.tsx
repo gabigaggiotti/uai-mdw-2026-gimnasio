@@ -35,7 +35,7 @@ export default async function Page() {
           <ul className="mt-4 space-y-2">
             {profesores.slice(0, 5).map((profesor) => (
               <li key={profesor.id} className="text-sm text-gray-700">
-                • {profesor.usuario.nombre} {profesor.usuario.apellido}
+                • {profesor.usuario.nombre} ({profesor.especialidad})
               </li>
             ))}
           </ul>
