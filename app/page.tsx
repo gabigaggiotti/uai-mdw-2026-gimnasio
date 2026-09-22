@@ -1,6 +1,11 @@
 import { listarClases } from "@/lib/db/clases";
 import { listarProfesores } from "@/lib/db/profesores";
 
+// Sin esto, Next intenta pre-renderizar esta página durante el build
+// (llamando a la base). Si la base no responde en ese momento —por
+// ejemplo, Supabase pausada por inactividad— el build se cae.
+export const dynamic = "force-dynamic";
+
 export default async function Page() {
   const [clases, profesores] = await Promise.all([
     listarClases(),
