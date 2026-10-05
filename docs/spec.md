@@ -103,4 +103,9 @@ Esta lista es **igual para todos los proyectos**: no hay que adaptarla, hay que 
 
 Lo que decidimos **no** hacer, para no volver a discutirlo en la clase 12.
 
--
+- Login propio y almacenamiento de contraseñas; la identidad se delega a Google OAuth.
+- Recuperación de contraseña, verificación de email y segundo factor.
+- Sesiones persistidas en la base, revocación inmediata y refresh tokens.
+- Permisos granulares configurables por recurso; se usan los roles `CLIENTE`, `PROFESOR` y `ADMINISTRADOR`.
+- Pantalla de administración de usuarios y roles; la asignación de roles privilegiados se realiza fuera de la API pública.
+- Endpoints de datos accesibles sin sesión.
