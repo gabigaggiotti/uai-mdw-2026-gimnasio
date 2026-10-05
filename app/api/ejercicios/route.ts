@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { crearEjercicioSchema } from "@/lib/schemas/ejercicio";
 import { crearEjercicio, listarEjercicios } from "@/lib/db/ejercicios";
+import { requerirUsuario } from "@/lib/auth";
+import { manejarHandler } from "@/lib/http";
 
-export async function GET() {
-  // TODO (clase 6): requerirUsuario().
+export const GET = manejarHandler("GET /api/ejercicios", async () => {
+  await requerirUsuario();
   const ejercicios = await listarEjercicios();
   return NextResponse.json(ejercicios);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = manejarHandler("POST /api/ejercicios", async (request: Request) => {
+  await requerirUsuario(["ADMINISTRADOR"]);
   const body: unknown = await request.json();
   const resultado = crearEjercicioSchema.safeParse(body);
 
@@ -19,7 +22,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
   const ejercicio = await crearEjercicio(resultado.data);
   return NextResponse.json(ejercicio, { status: 201 });
-}
+});

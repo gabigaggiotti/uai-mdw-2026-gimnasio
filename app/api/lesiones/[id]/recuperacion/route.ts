@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { obtenerLesion, marcarLesionRecuperada } from "@/lib/db/lesiones";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -9,10 +10,10 @@ type Params = { params: Promise<{ id: string }> };
  * de una lesión es un permiso propio (Profesor o Administrador, nunca
  * el propio Cliente), no una edición libre de sus datos.
  */
-export async function POST(_request: Request, { params }: Params) {
+export const POST = manejarHandler("POST /api/lesiones/:id/recuperacion", async (_request: Request, { params }: Params) => {
+  await requerirUsuario(["PROFESOR", "ADMINISTRADOR"]);
   const { id } = await params;
 
-  // TODO (clase 6): requerirUsuario(["PROFESOR", "ADMINISTRADOR"]).
   const lesion = await obtenerLesion(id);
 
   if (!lesion) {
@@ -23,10 +24,9 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "La lesión ya está marcada como recuperada" }, { status: 409 });
   }
 
-  try {
-    const lesionRecuperada = await marcarLesionRecuperada(id);
-    return NextResponse.json(lesionRecuperada);
-  } catch (error) {
-    return manejarError(error);
+  const lesionRecuperada = await marcarLesionRecuperada(id);
+  if (!lesionRecuperada) {
+    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
-}
+  return NextResponse.json(lesionRecuperada);
+});

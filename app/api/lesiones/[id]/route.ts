@@ -1,23 +1,28 @@
 import { NextResponse } from "next/server";
 import { editarLesionSchema } from "@/lib/schemas/lesion";
 import { obtenerLesion, editarLesion } from "@/lib/db/lesiones";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export const GET = manejarHandler("GET /api/lesiones/:id", async (_request: Request, { params }: Params) => {
+  const usuario = await requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]);
   const { id } = await params;
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]).
-  const lesion = await obtenerLesion(id);
+  const lesion = await obtenerLesion(
+    id,
+    usuario.rol === "CLIENTE" ? usuario.id : undefined,
+  );
 
   if (!lesion) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
 
   return NextResponse.json(lesion);
-}
+});
 
-export async function PATCH(request: Request, { params }: Params) {
+export const PATCH = manejarHandler("PATCH /api/lesiones/:id", async (request: Request, { params }: Params) => {
+  await requerirUsuario(["PROFESOR", "ADMINISTRADOR"]);
   const { id } = await params;
   const body: unknown = await request.json();
   const resultado = editarLesionSchema.safeParse(body);
@@ -29,11 +34,9 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["PROFESOR", "ADMINISTRADOR"]).
-  try {
-    const lesion = await editarLesion(id, resultado.data);
-    return NextResponse.json(lesion);
-  } catch (error) {
-    return manejarError(error);
+  const lesion = await editarLesion(id, resultado.data);
+  if (!lesion) {
+    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
-}
+  return NextResponse.json(lesion);
+});

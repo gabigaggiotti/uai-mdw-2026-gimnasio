@@ -1,23 +1,28 @@
 import { NextResponse } from "next/server";
 import { agregarEjercicioARutinaSchema } from "@/lib/schemas/rutinaEjercicio";
 import { obtenerRutinaConEjercicios, agregarEjercicioARutina } from "@/lib/db/rutinas";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export const GET = manejarHandler("GET /api/rutinas/:id/ejercicios", async (_request: Request, { params }: Params) => {
+  const usuario = await requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]);
   const { id } = await params;
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]).
-  const rutina = await obtenerRutinaConEjercicios(id);
+  const rutina = await obtenerRutinaConEjercicios(
+    id,
+    usuario.rol === "CLIENTE" ? usuario.id : undefined,
+  );
 
   if (!rutina) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
 
   return NextResponse.json(rutina.ejercicios);
-}
+});
 
-export async function POST(request: Request, { params }: Params) {
+export const POST = manejarHandler("POST /api/rutinas/:id/ejercicios", async (request: Request, { params }: Params) => {
+  await requerirUsuario(["PROFESOR", "ADMINISTRADOR"]);
   const { id } = await params;
   const body: unknown = await request.json();
   const resultado = agregarEjercicioARutinaSchema.safeParse(body);
@@ -29,11 +34,6 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["PROFESOR", "ADMINISTRADOR"]).
-  try {
-    const itemDeRutina = await agregarEjercicioARutina(id, resultado.data);
-    return NextResponse.json(itemDeRutina, { status: 201 });
-  } catch (error) {
-    return manejarError(error);
-  }
-}
+  const itemDeRutina = await agregarEjercicioARutina(id, resultado.data);
+  return NextResponse.json(itemDeRutina, { status: 201 });
+});

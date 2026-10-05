@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { editarEjercicioDeRutinaSchema } from "@/lib/schemas/rutinaEjercicio";
 import { editarEjercicioDeRutina, quitarEjercicioDeRutina } from "@/lib/db/rutinas";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 // itemId es el id de RutinaEjercicio (la fila de composición), no el
 // id de Ejercicio: dos filas distintas pueden apuntar al mismo
 // ejercicio si aparece más de una vez en la rutina.
 type Params = { params: Promise<{ id: string; itemId: string }> };
 
-export async function PATCH(request: Request, { params }: Params) {
-  const { itemId } = await params;
+export const PATCH = manejarHandler("PATCH /api/rutinas/:id/ejercicios/:itemId", async (request: Request, { params }: Params) => {
+  await requerirUsuario(["PROFESOR", "ADMINISTRADOR"]);
+  const { id, itemId } = await params;
   const body: unknown = await request.json();
   const resultado = editarEjercicioDeRutinaSchema.safeParse(body);
 
@@ -20,22 +22,19 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["PROFESOR", "ADMINISTRADOR"]).
-  try {
-    const itemDeRutina = await editarEjercicioDeRutina(itemId, resultado.data);
-    return NextResponse.json(itemDeRutina);
-  } catch (error) {
-    return manejarError(error);
+  const itemDeRutina = await editarEjercicioDeRutina(id, itemId, resultado.data);
+  if (!itemDeRutina) {
+    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
-}
+  return NextResponse.json(itemDeRutina);
+});
 
-export async function DELETE(_request: Request, { params }: Params) {
-  const { itemId } = await params;
-  // TODO (clase 6): requerirUsuario(["PROFESOR", "ADMINISTRADOR"]).
-  try {
-    await quitarEjercicioDeRutina(itemId);
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    return manejarError(error);
+export const DELETE = manejarHandler("DELETE /api/rutinas/:id/ejercicios/:itemId", async (_request: Request, { params }: Params) => {
+  await requerirUsuario(["PROFESOR", "ADMINISTRADOR"]);
+  const { id, itemId } = await params;
+  const eliminado = await quitarEjercicioDeRutina(id, itemId);
+  if (!eliminado) {
+    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
-}
+  return new NextResponse(null, { status: 204 });
+});

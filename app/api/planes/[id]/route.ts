@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { editarPlanSchema } from "@/lib/schemas/plan";
 import { obtenerPlan, editarPlan, eliminarPlan } from "@/lib/db/planes";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export const GET = manejarHandler("GET /api/planes/:id", async (_request: Request, { params }: Params) => {
+  await requerirUsuario();
   const { id } = await params;
   const plan = await obtenerPlan(id);
 
@@ -14,9 +16,10 @@ export async function GET(_request: Request, { params }: Params) {
   }
 
   return NextResponse.json(plan);
-}
+});
 
-export async function PATCH(request: Request, { params }: Params) {
+export const PATCH = manejarHandler("PATCH /api/planes/:id", async (request: Request, { params }: Params) => {
+  await requerirUsuario(["ADMINISTRADOR"]);
   const { id } = await params;
   const body: unknown = await request.json();
   const resultado = editarPlanSchema.safeParse(body);
@@ -28,22 +31,13 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
-  try {
-    const plan = await editarPlan(id, resultado.data);
-    return NextResponse.json(plan);
-  } catch (error) {
-    return manejarError(error);
-  }
-}
+  const plan = await editarPlan(id, resultado.data);
+  return NextResponse.json(plan);
+});
 
-export async function DELETE(_request: Request, { params }: Params) {
+export const DELETE = manejarHandler("DELETE /api/planes/:id", async (_request: Request, { params }: Params) => {
   const { id } = await params;
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
-  try {
-    await eliminarPlan(id);
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    return manejarError(error, "suscripciones");
-  }
-}
+  await requerirUsuario(["ADMINISTRADOR"]);
+  await eliminarPlan(id);
+  return new NextResponse(null, { status: 204 });
+}, "suscripciones");

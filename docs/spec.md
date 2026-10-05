@@ -14,8 +14,9 @@
 
 | Rol | Quién es | Qué puede hacer que el otro no |
 |---|---|---|
-| <rol A> | | |
-| <rol B> | | |
+| CLIENTE | Persona que entrena en el gimnasio | Consultar y administrar sus propias reservas, suscripciones, cuotas, lesiones y rutinas; reservar clases y activar sus rutinas |
+| PROFESOR | Profesor que dicta clases y prepara rutinas | Gestionar rutinas y lesiones; consultar las rutinas y lesiones de los clientes |
+| ADMINISTRADOR | Persona que administra el gimnasio | Gestionar clases, profesores, ejercicios, planes, suscripciones y cuotas; acceso global de administración |
 
 ## 3. Entidades
 
@@ -54,6 +55,16 @@ Las restricciones que **no** son obvias y que la IA no puede adivinar. Estas son
 
 - <ej: un turno no puede superponerse con otro del mismo profesional>
 - <ej: solo el creador o un administrador puede cancelar>
+
+### Autenticación y autorización (clase 6)
+
+- La identidad y el rol se obtienen de la sesión del servidor; nunca se aceptan desde body, headers o query string.
+- El registro OAuth crea usuarios nuevos como `CLIENTE`. Los roles `PROFESOR` y `ADMINISTRADOR` los asigna un administrador desde la base de datos; no existe autoasignación por API.
+- Si no hay sesión, la API responde `401`. Si hay sesión pero el rol no está permitido, responde `403`.
+- Los clientes solo pueden consultar o modificar sus propios recursos. Las consultas filtran por el ID de la sesión dentro de `lib/db/`; para un recurso ajeno se devuelve `404`, igual que para uno inexistente.
+- Los profesores pueden consultar lesiones y rutinas de cualquier cliente, además de gestionar lesiones y rutinas según los permisos definidos en `docs/api.md`.
+- Las operaciones de catálogo y administración requieren el rol indicado en la matriz de `docs/api.md`; los endpoints de negocio no son públicos.
+- Un cliente que intente crear una lesión para otro cliente recibe `403`. Las creaciones permitidas para un cliente usan su identidad de sesión.
 
 ## 7. Requisitos no funcionales
 

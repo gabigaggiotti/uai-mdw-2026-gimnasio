@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cancelarReserva, obtenerReserva } from "@/lib/db/reservas";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -11,12 +12,11 @@ type Params = { params: Promise<{ id: string }> };
  * no permitir cancelar pasada cierta anticipación — falta definir en
  * docs/spec.md).
  */
-export async function POST(_request: Request, { params }: Params) {
+export const POST = manejarHandler("POST /api/reservas/:id/cancelacion", async (_request: Request, { params }: Params) => {
+  const usuario = await requerirUsuario(["CLIENTE", "ADMINISTRADOR"]);
   const { id } = await params;
-
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "ADMINISTRADOR"]) +
-  // verificar que si es CLIENTE, la reserva sea la suya.
-  const reserva = await obtenerReserva(id);
+  const clienteId = usuario.rol === "CLIENTE" ? usuario.id : undefined;
+  const reserva = await obtenerReserva(id, clienteId);
 
   if (!reserva) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -26,10 +26,9 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "La reserva ya está cancelada" }, { status: 409 });
   }
 
-  try {
-    const reservaCancelada = await cancelarReserva(id);
-    return NextResponse.json(reservaCancelada);
-  } catch (error) {
-    return manejarError(error);
+  const reservaCancelada = await cancelarReserva(id, clienteId);
+  if (!reservaCancelada) {
+    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
-}
+  return NextResponse.json(reservaCancelada);
+});

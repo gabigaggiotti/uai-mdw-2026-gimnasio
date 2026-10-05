@@ -33,9 +33,9 @@ export async function listarReservasDeCliente(clienteId: string, limite: number 
   });
 }
 
-export async function obtenerReserva(id: string) {
-  return prisma.reserva.findUnique({
-    where: { id },
+export async function obtenerReserva(id: string, clienteId?: string) {
+  return prisma.reserva.findFirst({
+    where: { id, ...(clienteId ? { clienteId } : {}) },
     include: { clase: true },
   });
 }
@@ -83,11 +83,13 @@ export async function crearReserva(datos: CrearReservaInput, clienteId: string) 
   });
 }
 
-export async function cancelarReserva(id: string) {
-  const reserva = await prisma.reserva.findUniqueOrThrow({
-    where: { id },
+export async function cancelarReserva(id: string, clienteId?: string) {
+  const reserva = await prisma.reserva.findFirst({
+    where: { id, ...(clienteId ? { clienteId } : {}) },
     select: { fecha: true, clase: { select: { horaInicio: true } } },
   });
+
+  if (!reserva) return null;
 
   if (!puedeCancelarseConAnticipacion(reserva.fecha, reserva.clase.horaInicio, new Date())) {
     throw new CancelacionFueraDeTiempoError();
@@ -96,8 +98,11 @@ export async function cancelarReserva(id: string) {
   // No es un PATCH { estado: "CANCELADA" }: además de cambiar el estado,
   // libera el cupo (que se recalcula contando CONFIRMADA, así que
   // cancelar ya lo libera solo) y registra cuándo se canceló.
-  return prisma.reserva.update({
-    where: { id },
+  const actualizada = await prisma.reserva.updateMany({
+    where: { id, ...(clienteId ? { clienteId } : {}) },
     data: { estado: "CANCELADA", canceladaEn: new Date() },
   });
+
+  if (actualizada.count === 0) return null;
+  return obtenerReserva(id, clienteId);
 }

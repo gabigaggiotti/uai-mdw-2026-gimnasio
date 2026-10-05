@@ -1,24 +1,28 @@
 import { NextResponse } from "next/server";
 import { editarRutinaSchema } from "@/lib/schemas/rutina";
 import { obtenerRutinaConEjercicios, editarRutina, eliminarRutina } from "@/lib/db/rutinas";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export const GET = manejarHandler("GET /api/rutinas/:id", async (_request: Request, { params }: Params) => {
+  const usuario = await requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]);
   const { id } = await params;
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]) +
-  // si es CLIENTE, verificar que la rutina sea la suya.
-  const rutina = await obtenerRutinaConEjercicios(id);
+  const rutina = await obtenerRutinaConEjercicios(
+    id,
+    usuario.rol === "CLIENTE" ? usuario.id : undefined,
+  );
 
   if (!rutina) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
 
   return NextResponse.json(rutina);
-}
+});
 
-export async function PATCH(request: Request, { params }: Params) {
+export const PATCH = manejarHandler("PATCH /api/rutinas/:id", async (request: Request, { params }: Params) => {
+  await requerirUsuario(["PROFESOR", "ADMINISTRADOR"]);
   const { id } = await params;
   const body: unknown = await request.json();
   const resultado = editarRutinaSchema.safeParse(body);
@@ -30,22 +34,13 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["PROFESOR", "ADMINISTRADOR"]).
-  try {
-    const rutina = await editarRutina(id, resultado.data);
-    return NextResponse.json(rutina);
-  } catch (error) {
-    return manejarError(error);
-  }
-}
+  const rutina = await editarRutina(id, resultado.data);
+  return NextResponse.json(rutina);
+});
 
-export async function DELETE(_request: Request, { params }: Params) {
+export const DELETE = manejarHandler("DELETE /api/rutinas/:id", async (_request: Request, { params }: Params) => {
+  await requerirUsuario(["PROFESOR", "ADMINISTRADOR"]);
   const { id } = await params;
-  // TODO (clase 6): requerirUsuario(["PROFESOR", "ADMINISTRADOR"]).
-  try {
-    await eliminarRutina(id);
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    return manejarError(error);
-  }
-}
+  await eliminarRutina(id);
+  return new NextResponse(null, { status: 204 });
+});

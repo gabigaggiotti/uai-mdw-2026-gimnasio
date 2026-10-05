@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { crearPlanSchema } from "@/lib/schemas/plan";
 import { crearPlan, listarPlanes } from "@/lib/db/planes";
+import { requerirUsuario } from "@/lib/auth";
+import { manejarHandler } from "@/lib/http";
 
-export async function GET() {
-  // Sin restricción de rol: cualquier autenticado puede ver los planes.
-  // TODO (clase 6): requerirUsuario().
+export const GET = manejarHandler("GET /api/planes", async () => {
+  await requerirUsuario();
   const planes = await listarPlanes();
   return NextResponse.json(planes);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = manejarHandler("POST /api/planes", async (request: Request) => {
+  await requerirUsuario(["ADMINISTRADOR"]);
   const body: unknown = await request.json();
   const resultado = crearPlanSchema.safeParse(body);
 
@@ -20,7 +22,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
   const plan = await crearPlan(resultado.data);
   return NextResponse.json(plan, { status: 201 });
-}
+});

@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server";
 import { crearRutinaSchema } from "@/lib/schemas/rutina";
 import { crearRutina, listarRutinasDeCliente } from "@/lib/db/rutinas";
+import { requerirUsuario } from "@/lib/auth";
+import { manejarHandler } from "@/lib/http";
 
-export async function GET(request: Request) {
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]) +
-  // si es CLIENTE, forzar clienteId = usuario.id.
+export const GET = manejarHandler("GET /api/rutinas", async (request: Request) => {
+  const usuario = await requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]);
   const { searchParams } = new URL(request.url);
-  const clienteId = searchParams.get("clienteId") ?? "usuario-de-ejemplo";
+  const clienteId = usuario.rol === "CLIENTE"
+    ? usuario.id
+    : searchParams.get("clienteId") ?? undefined;
 
   const rutinas = await listarRutinasDeCliente(clienteId);
   return NextResponse.json(rutinas);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = manejarHandler("POST /api/rutinas", async (request: Request) => {
+  await requerirUsuario(["PROFESOR", "ADMINISTRADOR"]);
   const body: unknown = await request.json();
   const resultado = crearRutinaSchema.safeParse(body);
 
@@ -23,7 +27,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["PROFESOR", "ADMINISTRADOR"]).
   const rutina = await crearRutina(resultado.data);
   return NextResponse.json(rutina, { status: 201 });
-}
+});

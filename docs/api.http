@@ -9,6 +9,23 @@
 @base = http://localhost:3000/api
 # @base = https://uai-mdw-2026-gimnasio.vercel.app/api
 
+@sesionCliente = authjs.session-token={{$dotenv SESION_CLIENTE}}
+@sesionProfesor = authjs.session-token={{$dotenv SESION_PROFESOR}}
+@sesionAdministrador = authjs.session-token={{$dotenv SESION_ADMINISTRADOR}}
+
+### Sin sesión → 401
+GET {{base}}/clases
+
+### Cliente intentando operar como administrador → 403
+GET {{base}}/profesores
+Cookie: {{sesionCliente}}
+
+### Cliente consultando una reserva ajena → 404
+### Completar con el ID de una reserva que pertenezca a otro cliente.
+@reservaDeOtroClienteId = PEGAR_ID_DE_RESERVA_AJENA
+GET {{base}}/reservas/{{reservaDeOtroClienteId}}
+Cookie: {{sesionCliente}}
+
 @clienteSinSuscripcionId = PEGAR_ID_CLIENTE_SIN_SUSCRIPCION_VIGENTE
 @clienteConSuscripcionId = PEGAR_ID_CLIENTE_CON_SUSCRIPCION_ACTIVA
 @claseId = PEGAR_ID_DE_UNA_CLASE
