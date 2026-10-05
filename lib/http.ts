@@ -5,10 +5,20 @@
  */
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { CupoAgotadoError } from "@/lib/db/errors";
+import {
+  CancelacionFueraDeTiempoError,
+  CupoAgotadoError,
+  SinSuscripcionVigenteError,
+  SuperposicionDeTurnosError,
+} from "@/lib/db/errors";
 
 export function manejarError(error: unknown, entidadEnUso?: string): NextResponse {
-  if (error instanceof CupoAgotadoError) {
+  if (
+    error instanceof CupoAgotadoError ||
+    error instanceof SinSuscripcionVigenteError ||
+    error instanceof SuperposicionDeTurnosError ||
+    error instanceof CancelacionFueraDeTiempoError
+  ) {
     return NextResponse.json({ error: error.message }, { status: 409 });
   }
 
