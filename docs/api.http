@@ -1,0 +1,74 @@
+### Variables
+### Requiere la extensión "REST Client" de VS Code (o similar).
+### Completá los IDs con datos reales de tu base (npx prisma studio):
+### - un cliente SIN suscripción vigente (o con una VENCIDA/CANCELADA)
+### - un cliente CON suscripción ACTIVA y fechaFin futura
+### - una clase con cupoMaximo chico, para poder agotarlo fácil
+### - una reserva CONFIRMADA ya existente, para probar cancelación
+
+@base = http://localhost:3000/api
+# @base = https://uai-mdw-2026-gimnasio.vercel.app/api
+
+@clienteSinSuscripcionId = PEGAR_ID_CLIENTE_SIN_SUSCRIPCION_VIGENTE
+@clienteConSuscripcionId = PEGAR_ID_CLIENTE_CON_SUSCRIPCION_ACTIVA
+@claseId = PEGAR_ID_DE_UNA_CLASE
+@reservaExistenteId = PEGAR_ID_DE_UNA_RESERVA_CONFIRMADA
+
+### 1. Reservar sin suscripción vigente → 409 "Necesitás una suscripción..."
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "claseId": "{{claseId}}",
+  "fecha": "2026-12-08T18:00:00.000Z"
+}
+
+### 2. Reservar con suscripción vigente y sin pisar otro turno → 201
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "claseId": "{{claseId}}",
+  "fecha": "2026-12-15T18:00:00.000Z"
+}
+
+### 3. Reservar OTRA clase que se superpone en día y horario con la anterior → 409 "Ya tenés una reserva..."
+### (Elegí una fecha/clase con horaInicio-horaFin que se pise con el request 2)
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "claseId": "{{claseId}}",
+  "fecha": "2026-12-15T18:30:00.000Z"
+}
+
+### 4. Reservar una clase sin cupo (repetí este request cupoMaximo + 1 veces, con fechas que no se superpongan) → 409 "No hay cupo..."
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "claseId": "{{claseId}}",
+  "fecha": "2026-12-22T18:00:00.000Z"
+}
+
+### 5. Reservar una clase que no existe → 404
+POST {{base}}/reservas
+Content-Type: application/json
+
+{
+  "claseId": "cl0000000000000000000000",
+  "fecha": "2026-12-08T18:00:00.000Z"
+}
+
+### 6. Cancelar con menos de 2hs de anticipación → 409 "Ya no se puede cancelar..."
+### (Para probar esto en limpio, la reserva tiene que ser para "ahora + 1 hora")
+POST {{base}}/reservas/{{reservaExistenteId}}/cancelacion
+
+### 7. Cancelar con tiempo de sobra → 200
+POST {{base}}/reservas/{{reservaExistenteId}}/cancelacion
+
+### 8. Cancelar una reserva que ya estaba cancelada → 409 "La reserva ya está cancelada"
+POST {{base}}/reservas/{{reservaExistenteId}}/cancelacion
+
+### 9. Cancelar una reserva que no existe → 404
+POST {{base}}/reservas/cl0000000000000000000000/cancelacion
