@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server";
 import { crearLesionSchema } from "@/lib/schemas/lesion";
 import { crearLesion, listarLesionesDeCliente } from "@/lib/db/lesiones";
+import { NoAutorizado, requerirUsuario } from "@/lib/auth";
+import { manejarHandler } from "@/lib/http";
 
-export async function GET(request: Request) {
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]) +
-  // si es CLIENTE, forzar clienteId = usuario.id (ignorar el query param).
+export const GET = manejarHandler("GET /api/lesiones", async (request: Request) => {
+  const usuario = await requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]);
   const { searchParams } = new URL(request.url);
-  const clienteId = searchParams.get("clienteId") ?? "usuario-de-ejemplo";
+  const clienteId = usuario.rol === "CLIENTE"
+    ? usuario.id
+    : searchParams.get("clienteId") ?? undefined;
 
   const lesiones = await listarLesionesDeCliente(clienteId);
   return NextResponse.json(lesiones);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = manejarHandler("POST /api/lesiones", async (request: Request) => {
+  const usuario = await requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]);
   const body: unknown = await request.json();
   const resultado = crearLesionSchema.safeParse(body);
 
@@ -23,7 +27,10 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "PROFESOR", "ADMINISTRADOR"]).
+  if (usuario.rol === "CLIENTE" && resultado.data.clienteId !== usuario.id) {
+    throw new NoAutorizado();
+  }
+
   const lesion = await crearLesion(resultado.data);
   return NextResponse.json(lesion, { status: 201 });
-}
+});

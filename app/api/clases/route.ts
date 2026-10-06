@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { crearClaseSchema, diaSemanaSchema } from "@/lib/schemas/clase";
 import { crearClase, listarClases } from "@/lib/db/clases";
+import { requerirUsuario } from "@/lib/auth";
+import { manejarHandler } from "@/lib/http";
 
-export async function GET(request: Request) {
-  // TODO (clase 6): requerirUsuario().
+export const GET = manejarHandler("GET /api/clases", async (request: Request) => {
+  await requerirUsuario();
   const { searchParams } = new URL(request.url);
   const diaSemanaParam = searchParams.get("dia");
 
@@ -18,9 +20,10 @@ export async function GET(request: Request) {
 
   const clases = await listarClases();
   return NextResponse.json(clases);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = manejarHandler("POST /api/clases", async (request: Request) => {
+  await requerirUsuario(["ADMINISTRADOR"]);
   const body: unknown = await request.json();
   const resultado = crearClaseSchema.safeParse(body);
 
@@ -31,7 +34,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
   const clase = await crearClase(resultado.data);
   return NextResponse.json(clase, { status: 201 });
-}
+});

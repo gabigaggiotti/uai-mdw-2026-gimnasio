@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { cancelarSuscripcion, obtenerSuscripcion } from "@/lib/db/suscripciones";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(_request: Request, { params }: Params) {
+export const POST = manejarHandler("POST /api/suscripciones/:id/cancelacion", async (_request: Request, { params }: Params) => {
+  const usuario = await requerirUsuario(["CLIENTE", "ADMINISTRADOR"]);
   const { id } = await params;
-
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "ADMINISTRADOR"]) +
-  // verificar que si es CLIENTE, la suscripción sea la suya.
-  const suscripcion = await obtenerSuscripcion(id);
+  const clienteId = usuario.rol === "CLIENTE" ? usuario.id : undefined;
+  const suscripcion = await obtenerSuscripcion(id, clienteId);
 
   if (!suscripcion) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -19,10 +19,9 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "La suscripción ya está cancelada" }, { status: 409 });
   }
 
-  try {
-    const suscripcionCancelada = await cancelarSuscripcion(id);
-    return NextResponse.json(suscripcionCancelada);
-  } catch (error) {
-    return manejarError(error);
+  const suscripcionCancelada = await cancelarSuscripcion(id, clienteId);
+  if (!suscripcionCancelada) {
+    return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
-}
+  return NextResponse.json(suscripcionCancelada);
+});

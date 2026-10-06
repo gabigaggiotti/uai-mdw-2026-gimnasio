@@ -22,16 +22,22 @@ const INCLUDE_EJERCICIOS = {
   },
 };
 
-export async function listarRutinasDeCliente(clienteId: string, limite: number = LIMITE_POR_DEFECTO) {
+export async function listarRutinasDeCliente(
+  clienteId?: string,
+  limite: number = LIMITE_POR_DEFECTO,
+) {
   return prisma.rutina.findMany({
-    where: { clienteId },
+    where: clienteId ? { clienteId } : {},
     take: limite,
     orderBy: { creadaEn: "desc" },
   });
 }
 
-export async function obtenerRutinaConEjercicios(id: string) {
-  return prisma.rutina.findUnique({ where: { id }, include: INCLUDE_EJERCICIOS });
+export async function obtenerRutinaConEjercicios(id: string, clienteId?: string) {
+  return prisma.rutina.findFirst({
+    where: { id, ...(clienteId ? { clienteId } : {}) },
+    include: INCLUDE_EJERCICIOS,
+  });
 }
 
 export async function crearRutina(datos: CrearRutinaInput) {
@@ -49,7 +55,12 @@ export async function activarRutina(id: string, clienteId: string) {
       data: { estado: "INACTIVA" },
     });
 
-    return tx.rutina.update({ where: { id }, data: { estado: "ACTIVA" } });
+    const activada = await tx.rutina.updateMany({
+      where: { id, clienteId },
+      data: { estado: "ACTIVA" },
+    });
+    if (activada.count === 0) return null;
+    return tx.rutina.findFirst({ where: { id, clienteId } });
   });
 }
 
@@ -61,10 +72,22 @@ export async function agregarEjercicioARutina(rutinaId: string, datos: AgregarEj
   return prisma.rutinaEjercicio.create({ data: { rutinaId, ...datos } });
 }
 
-export async function editarEjercicioDeRutina(rutinaEjercicioId: string, datos: EditarEjercicioDeRutinaInput) {
-  return prisma.rutinaEjercicio.update({ where: { id: rutinaEjercicioId }, data: datos });
+export async function editarEjercicioDeRutina(
+  rutinaId: string,
+  rutinaEjercicioId: string,
+  datos: EditarEjercicioDeRutinaInput,
+) {
+  const actualizada = await prisma.rutinaEjercicio.updateMany({
+    where: { id: rutinaEjercicioId, rutinaId },
+    data: datos,
+  });
+  if (actualizada.count === 0) return null;
+  return prisma.rutinaEjercicio.findFirst({ where: { id: rutinaEjercicioId, rutinaId } });
 }
 
-export async function quitarEjercicioDeRutina(rutinaEjercicioId: string) {
-  return prisma.rutinaEjercicio.delete({ where: { id: rutinaEjercicioId } });
+export async function quitarEjercicioDeRutina(rutinaId: string, rutinaEjercicioId: string) {
+  const eliminado = await prisma.rutinaEjercicio.deleteMany({
+    where: { id: rutinaEjercicioId, rutinaId },
+  });
+  return eliminado.count > 0;
 }

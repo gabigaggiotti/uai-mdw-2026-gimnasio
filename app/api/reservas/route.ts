@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { crearReservaSchema } from "@/lib/schemas/reserva";
 import { crearReserva, listarReservasDeCliente } from "@/lib/db/reservas";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
-export async function GET() {
-  // TODO (clase 6): const { id: clienteId } = await requerirUsuario(["CLIENTE"]);
-  const clienteId = "usuario-de-ejemplo";
+export const GET = manejarHandler("GET /api/reservas", async () => {
+  const { id: clienteId } = await requerirUsuario(["CLIENTE"]);
   const reservas = await listarReservasDeCliente(clienteId);
   return NextResponse.json(reservas);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = manejarHandler("POST /api/reservas", async (request: Request) => {
+  const { id: clienteId } = await requerirUsuario(["CLIENTE"]);
   const body: unknown = await request.json();
   const resultado = crearReservaSchema.safeParse(body);
 
@@ -21,15 +22,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO (clase 6): const { id: clienteId } = await requerirUsuario(["CLIENTE"]);
-  const clienteId = "usuario-de-ejemplo";
-
-  try {
-    const reserva = await crearReserva(resultado.data, clienteId);
-    return NextResponse.json(reserva, { status: 201 });
-  } catch (error) {
-    // CupoAgotadoError → 409 vía manejarError. findUniqueOrThrow sobre
-    // una clase que no existe → P2025 → 404, también vía manejarError.
-    return manejarError(error);
-  }
-}
+  const reserva = await crearReserva(resultado.data, clienteId);
+  return NextResponse.json(reserva, { status: 201 });
+});

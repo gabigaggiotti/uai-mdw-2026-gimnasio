@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { crearSuscripcionSchema } from "@/lib/schemas/suscripcion";
 import { crearSuscripcion, listarSuscripcionesDeCliente } from "@/lib/db/suscripciones";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
-export async function GET() {
-  // TODO (clase 6): const { id: clienteId } = await requerirUsuario(["CLIENTE"]);
-  const clienteId = "usuario-de-ejemplo";
+export const GET = manejarHandler("GET /api/suscripciones", async () => {
+  const { id: clienteId } = await requerirUsuario(["CLIENTE"]);
   const suscripciones = await listarSuscripcionesDeCliente(clienteId);
   return NextResponse.json(suscripciones);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = manejarHandler("POST /api/suscripciones", async (request: Request) => {
+  await requerirUsuario(["ADMINISTRADOR"]);
   const body: unknown = await request.json();
   const resultado = crearSuscripcionSchema.safeParse(body);
 
@@ -21,11 +22,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
-  try {
-    const suscripcion = await crearSuscripcion(resultado.data);
-    return NextResponse.json(suscripcion, { status: 201 });
-  } catch (error) {
-    return manejarError(error);
-  }
-}
+  const suscripcion = await crearSuscripcion(resultado.data);
+  return NextResponse.json(suscripcion, { status: 201 });
+});

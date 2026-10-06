@@ -10,16 +10,25 @@ import type { CrearCuotaInput } from "@/lib/schemas/cuota";
 
 const LIMITE_POR_DEFECTO = 50;
 
-export async function listarCuotasDeSuscripcion(suscripcionId: string, limite: number = LIMITE_POR_DEFECTO) {
+export async function listarCuotasDeSuscripcion(
+  suscripcionId: string,
+  limite: number = LIMITE_POR_DEFECTO,
+  clienteId?: string,
+) {
   return prisma.cuota.findMany({
-    where: { suscripcionId },
+    where: {
+      suscripcionId,
+      ...(clienteId ? { suscripcion: { clienteId } } : {}),
+    },
     take: limite,
     orderBy: { fechaPago: "desc" },
   });
 }
 
-export async function obtenerCuota(id: string) {
-  return prisma.cuota.findUnique({ where: { id } });
+export async function obtenerCuota(id: string, clienteId?: string) {
+  return prisma.cuota.findFirst({
+    where: { id, ...(clienteId ? { suscripcion: { clienteId } } : {}) },
+  });
 }
 
 export async function registrarCuota(datos: CrearCuotaInput) {

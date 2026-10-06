@@ -1,8 +1,36 @@
 # Contrato de la API
 
-> Este documento se completa clase a clase. Hoy (clase 5) se agrega la sección
-> "Los errores, en detalle": cada fila tiene que poder trazarse a una regla de
-> negocio de [`docs/spec.md`](./spec.md), sección 6.
+> Este documento se completa clase a clase. Cada fila tiene que poder trazarse
+> a una regla de negocio de [`docs/spec.md`](./spec.md), sección 6.
+
+## Autenticación y permisos
+
+La identidad se obtiene de la sesión de Auth.js en el servidor. Ningún endpoint
+acepta `usuarioId` o `rol` como identidad desde el body, headers o query string.
+Las rutas de negocio requieren sesión; no hay endpoints de datos públicos.
+
+| Operaciones | Roles permitidos | Alcance |
+|---|---|---|
+| `GET /api/clases`, `GET /api/planes`, `GET /api/ejercicios` y sus GET por ID | Cualquier usuario autenticado | Datos del catálogo |
+| Crear, editar y borrar clases, planes y ejercicios | `ADMINISTRADOR` | Global |
+| Todas las operaciones de `/api/profesores` | `ADMINISTRADOR` | Global |
+| `GET /api/reservas`, `POST /api/reservas` | `CLIENTE` | Solo reservas del usuario de sesión; al crear, el cliente sale de la sesión |
+| `GET /api/reservas/:id`, cancelación de reserva | `CLIENTE`, `ADMINISTRADOR` | Para Cliente, la consulta y la cancelación filtran por su ID; un recurso ajeno responde `404` |
+| `GET /api/suscripciones` | `CLIENTE` | Solo sus propias suscripciones |
+| `POST /api/suscripciones` | `ADMINISTRADOR` | Global |
+| `GET /api/suscripciones/:id`, cancelación de suscripción | `CLIENTE`, `ADMINISTRADOR` | Para Cliente, filtra por su ID y oculta ajenas con `404` |
+| `GET /api/cuotas`, `GET /api/cuotas/:id` | `CLIENTE`, `ADMINISTRADOR` | Para Cliente, solo cuotas de sus suscripciones; ajenas responden `404` |
+| `POST /api/cuotas` | `ADMINISTRADOR` | Global |
+| `GET /api/lesiones`, `GET /api/lesiones/:id` | `CLIENTE`, `PROFESOR`, `ADMINISTRADOR` | Cliente solo ve las propias; Profesor y Administrador pueden consultar cualquiera |
+| `POST /api/lesiones` | `CLIENTE`, `PROFESOR`, `ADMINISTRADOR` | Cliente solo puede registrar para sí mismo; Profesor y Administrador pueden registrar para cualquier cliente |
+| Editar lesión y marcarla recuperada | `PROFESOR`, `ADMINISTRADOR` | Global |
+| `GET /api/rutinas`, `GET /api/rutinas/:id` y ejercicios de una rutina | `CLIENTE`, `PROFESOR`, `ADMINISTRADOR` | Cliente solo ve las propias; Profesor y Administrador pueden consultar cualquiera |
+| Crear, editar o borrar rutinas y sus ejercicios | `PROFESOR`, `ADMINISTRADOR` | Global |
+| Activar rutina | `CLIENTE`, `ADMINISTRADOR` | Cliente solo puede activar una propia; Administrador puede activar cualquiera |
+
+`requerirUsuario` responde `401` si falta la sesión y `403` si el rol no está
+permitido. Para la pertenencia, `lib/db/` incluye el usuario de sesión en el
+`where`; una fila ajena y una inexistente producen el mismo `404`.
 
 ## Los errores, en detalle
 
@@ -18,10 +46,8 @@
 
 Las cuatro reglas de negocio de arriba (suscripción vigente, sin superposición,
 cupo, cancelación anticipada) salen directo de la sección 6 de `docs/spec.md`.
-El resto del catálogo (clases, profesores, planes, cuotas, lesiones, rutinas,
-notas, ejercicios) queda pendiente: son en su mayoría 400 de Zod (ya resueltos
-desde la clase 2) o TODO (clase 6) de autorización, sin una regla de negocio
-nueva de por medio todavía.
+El resto de los endpoints aplica las reglas de autorización y pertenencia de la
+sección "Autenticación y permisos"; las validaciones de Zod responden `400`.
 
 ### Por qué 409 y no 400
 

@@ -5,6 +5,7 @@
  */
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
+import { NoAutenticado, NoAutorizado } from "@/lib/auth";
 import {
   CancelacionFueraDeTiempoError,
   CupoAgotadoError,
@@ -12,7 +13,19 @@ import {
   SuperposicionDeTurnosError,
 } from "@/lib/db/errors";
 
-export function manejarError(error: unknown, entidadEnUso?: string): NextResponse {
+export function responderError(
+  endpoint: string,
+  error: unknown,
+  entidadEnUso?: string,
+): NextResponse {
+  if (error instanceof NoAutenticado) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+
+  if (error instanceof NoAutorizado) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+  }
+
   if (
     error instanceof CupoAgotadoError ||
     error instanceof SinSuscripcionVigenteError ||
@@ -37,6 +50,24 @@ export function manejarError(error: unknown, entidadEnUso?: string): NextRespons
   }
 
   // Nunca llega acá a propósito: si llega, es un bug nuestro, no del cliente.
-  console.error(error);
+  console.error(endpoint, error);
   return NextResponse.json({ error: "Error interno" }, { status: 500 });
+}
+
+export function manejarError(error: unknown, entidadEnUso?: string): NextResponse {
+  return responderError("API", error, entidadEnUso);
+}
+
+export function manejarHandler<TArgs extends unknown[]>(
+  endpoint: string,
+  handler: (...args: TArgs) => Promise<NextResponse>,
+  entidadEnUso?: string,
+) {
+  return async (...args: TArgs): Promise<NextResponse> => {
+    try {
+      return await handler(...args);
+    } catch (error) {
+      return responderError(endpoint, error, entidadEnUso);
+    }
+  };
 }

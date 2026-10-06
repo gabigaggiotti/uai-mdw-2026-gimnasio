@@ -8,6 +8,7 @@ build/
 .env
 .env.local
 .env*.local
+docs/.env
 
 # vercel
 .vercel

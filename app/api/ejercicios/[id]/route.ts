@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { editarEjercicioSchema } from "@/lib/schemas/ejercicio";
 import { obtenerEjercicio, editarEjercicio, eliminarEjercicio } from "@/lib/db/ejercicios";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export const GET = manejarHandler("GET /api/ejercicios/:id", async (_request: Request, { params }: Params) => {
+  await requerirUsuario();
   const { id } = await params;
   const ejercicio = await obtenerEjercicio(id);
 
@@ -14,9 +16,10 @@ export async function GET(_request: Request, { params }: Params) {
   }
 
   return NextResponse.json(ejercicio);
-}
+});
 
-export async function PATCH(request: Request, { params }: Params) {
+export const PATCH = manejarHandler("PATCH /api/ejercicios/:id", async (request: Request, { params }: Params) => {
+  await requerirUsuario(["ADMINISTRADOR"]);
   const { id } = await params;
   const body: unknown = await request.json();
   const resultado = editarEjercicioSchema.safeParse(body);
@@ -28,22 +31,13 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
-  try {
-    const ejercicio = await editarEjercicio(id, resultado.data);
-    return NextResponse.json(ejercicio);
-  } catch (error) {
-    return manejarError(error);
-  }
-}
+  const ejercicio = await editarEjercicio(id, resultado.data);
+  return NextResponse.json(ejercicio);
+});
 
-export async function DELETE(_request: Request, { params }: Params) {
+export const DELETE = manejarHandler("DELETE /api/ejercicios/:id", async (_request: Request, { params }: Params) => {
   const { id } = await params;
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
-  try {
-    await eliminarEjercicio(id);
-    return new NextResponse(null, { status: 204 });
-  } catch (error) {
-    return manejarError(error, "rutinas");
-  }
-}
+  await requerirUsuario(["ADMINISTRADOR"]);
+  await eliminarEjercicio(id);
+  return new NextResponse(null, { status: 204 });
+}, "rutinas");

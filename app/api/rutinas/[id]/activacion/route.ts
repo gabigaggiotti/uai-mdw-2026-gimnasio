@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { obtenerRutinaConEjercicios, activarRutina } from "@/lib/db/rutinas";
+import { requerirUsuario } from "@/lib/auth";
+import { manejarHandler } from "@/lib/http";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -9,12 +11,13 @@ type Params = { params: Promise<{ id: string }> };
  * cliente), y esa regla no puede quedar en manos de lo que mande el
  * cliente HTTP.
  */
-export async function POST(_request: Request, { params }: Params) {
+export const POST = manejarHandler("POST /api/rutinas/:id/activacion", async (_request: Request, { params }: Params) => {
+  const usuario = await requerirUsuario(["CLIENTE", "ADMINISTRADOR"]);
   const { id } = await params;
-
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "ADMINISTRADOR"]) +
-  // si es CLIENTE, verificar que la rutina sea la suya.
-  const rutina = await obtenerRutinaConEjercicios(id);
+  const rutina = await obtenerRutinaConEjercicios(
+    id,
+    usuario.rol === "CLIENTE" ? usuario.id : undefined,
+  );
 
   if (!rutina) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
@@ -22,4 +25,4 @@ export async function POST(_request: Request, { params }: Params) {
 
   const rutinaActivada = await activarRutina(id, rutina.clienteId);
   return NextResponse.json(rutinaActivada);
-}
+});

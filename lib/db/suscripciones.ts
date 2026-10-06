@@ -19,9 +19,9 @@ export async function listarSuscripcionesDeCliente(clienteId: string, limite: nu
   });
 }
 
-export async function obtenerSuscripcion(id: string) {
-  return prisma.suscripcion.findUnique({
-    where: { id },
+export async function obtenerSuscripcion(id: string, clienteId?: string) {
+  return prisma.suscripcion.findFirst({
+    where: { id, ...(clienteId ? { clienteId } : {}) },
     include: { plan: true, cuotas: { orderBy: { fechaPago: "desc" } } },
   });
 }
@@ -42,9 +42,12 @@ export async function crearSuscripcion(datos: CrearSuscripcionInput) {
   });
 }
 
-export async function cancelarSuscripcion(id: string) {
-  return prisma.suscripcion.update({
-    where: { id },
+export async function cancelarSuscripcion(id: string, clienteId?: string) {
+  const actualizada = await prisma.suscripcion.updateMany({
+    where: { id, ...(clienteId ? { clienteId } : {}) },
     data: { estado: "CANCELADA" },
   });
+
+  if (actualizada.count === 0) return null;
+  return obtenerSuscripcion(id, clienteId);
 }

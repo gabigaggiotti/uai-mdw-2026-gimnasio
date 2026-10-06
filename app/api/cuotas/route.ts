@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { crearCuotaSchema } from "@/lib/schemas/cuota";
 import { registrarCuota, listarCuotasDeSuscripcion } from "@/lib/db/cuotas";
-import { manejarError } from "@/lib/http";
+import { manejarHandler } from "@/lib/http";
+import { requerirUsuario } from "@/lib/auth";
 
-export async function GET(request: Request) {
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "ADMINISTRADOR"]) +
-  // si es CLIENTE, verificar que la suscripción sea la suya.
+export const GET = manejarHandler("GET /api/cuotas", async (request: Request) => {
+  const usuario = await requerirUsuario(["CLIENTE", "ADMINISTRADOR"]);
   const { searchParams } = new URL(request.url);
   const suscripcionId = searchParams.get("suscripcionId");
 
@@ -13,11 +13,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Falta el parámetro 'suscripcionId'" }, { status: 400 });
   }
 
-  const cuotas = await listarCuotasDeSuscripcion(suscripcionId);
+  const cuotas = await listarCuotasDeSuscripcion(
+    suscripcionId,
+    undefined,
+    usuario.rol === "CLIENTE" ? usuario.id : undefined,
+  );
   return NextResponse.json(cuotas);
-}
+});
 
-export async function POST(request: Request) {
+export const POST = manejarHandler("POST /api/cuotas", async (request: Request) => {
+  await requerirUsuario(["ADMINISTRADOR"]);
   const body: unknown = await request.json();
   const resultado = crearCuotaSchema.safeParse(body);
 
@@ -28,11 +33,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // TODO (clase 6): requerirUsuario(["ADMINISTRADOR"]).
-  try {
-    const cuota = await registrarCuota(resultado.data);
-    return NextResponse.json(cuota, { status: 201 });
-  } catch (error) {
-    return manejarError(error);
-  }
-}
+  const cuota = await registrarCuota(resultado.data);
+  return NextResponse.json(cuota, { status: 201 });
+});

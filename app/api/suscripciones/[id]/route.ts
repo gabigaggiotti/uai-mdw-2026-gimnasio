@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import { obtenerSuscripcion } from "@/lib/db/suscripciones";
+import { requerirUsuario } from "@/lib/auth";
+import { manejarHandler } from "@/lib/http";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, { params }: Params) {
+export const GET = manejarHandler("GET /api/suscripciones/:id", async (_request: Request, { params }: Params) => {
+  const usuario = await requerirUsuario(["CLIENTE", "ADMINISTRADOR"]);
   const { id } = await params;
-  // TODO (clase 6): requerirUsuario(["CLIENTE", "ADMINISTRADOR"]) +
-  // si es CLIENTE, verificar que la suscripción sea la suya (si no, 404).
-  const suscripcion = await obtenerSuscripcion(id);
+  const suscripcion = await obtenerSuscripcion(
+    id,
+    usuario.rol === "CLIENTE" ? usuario.id : undefined,
+  );
 
   if (!suscripcion) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
 
   return NextResponse.json(suscripcion);
-}
+});
