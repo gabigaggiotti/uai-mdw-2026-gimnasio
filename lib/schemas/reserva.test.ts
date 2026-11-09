@@ -25,6 +25,13 @@ describe("crearReservaSchema", () => {
     expect(resultado.success).toBe(false);
   });
 
+  it("rechaza una fecha vacía con un mensaje para la persona", () => {
+    // Es lo que manda el formulario si no se eligió ninguna opción.
+    const resultado = crearReservaSchema.safeParse({ claseId: "clx1a2b3c0000qzrm6ievzp2u", fecha: "" });
+    expect(resultado.success).toBe(false);
+    expect(resultado.error?.flatten().fieldErrors.fecha).toEqual(["Elegí una fecha"]);
+  });
+
   it("rechaza un claseId que no tiene forma de cuid", () => {
     const resultado = crearReservaSchema.safeParse({ claseId: "123", fecha: FECHA_FUTURA });
     expect(resultado.success).toBe(false);

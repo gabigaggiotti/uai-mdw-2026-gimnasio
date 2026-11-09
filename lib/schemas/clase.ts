@@ -35,7 +35,7 @@ export const crearClaseSchema = z
     horaInicio: z.string().regex(HORA_REGEX, "El formato tiene que ser HH:MM"),
     horaFin: z.string().regex(HORA_REGEX, "El formato tiene que ser HH:MM"),
     cupoMaximo: z
-      .number()
+      .number({ required_error: "Completá el cupo", invalid_type_error: "El cupo tiene que ser un número" })
       .int("El cupo tiene que ser un número entero")
       .positive("El cupo tiene que ser mayor a 0"),
     salon: z.string().trim().max(40, "El salón no puede superar los 40 caracteres").optional(),
