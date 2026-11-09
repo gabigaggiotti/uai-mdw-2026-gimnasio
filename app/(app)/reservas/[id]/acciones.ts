@@ -12,7 +12,9 @@ import { requerirUsuario } from "@/lib/auth";
 import { cancelarReservaDe, MENSAJE_RECHAZO_CANCELACION } from "@/lib/casos/cancelar-reserva";
 import type { EstadoFormulario } from "@/lib/formularios";
 
-export async function cancelarAction(reservaId: string, _estadoAnterior: EstadoFormulario): Promise<EstadoFormulario> {
+// No recibe el estado anterior ni el FormData: el formulario es solo un
+// botón y todo lo que necesita sale de la URL (.bind) y de la sesión.
+export async function cancelarAction(reservaId: string): Promise<EstadoFormulario> {
   const usuario = await requerirUsuario(["CLIENTE", "ADMINISTRADOR"]);
   const clienteId = usuario.rol === "CLIENTE" ? usuario.id : undefined;
 
