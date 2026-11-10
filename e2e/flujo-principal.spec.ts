@@ -52,6 +52,7 @@ test("el administrador publica una clase, el cliente la reserva y la cancela", a
     await cliente.goto("/");
     await cliente.getByLabel("Buscar clase").fill(nombreDeLaClase);
     await cliente.getByRole("link", { name: new RegExp(nombreDeLaClase) }).click();
+    await expect(cliente).toHaveURL(/\/clases\/[^/]+$/);
     await expect(cliente.getByRole("heading", { name: nombreDeLaClase })).toBeVisible();
   });
 
