@@ -36,7 +36,7 @@ async function main() {
     include: { profesor: true },
   });
 
-  await prisma.usuario.upsert({
+  const cliente = await prisma.usuario.upsert({
     where: { email: "cliente@ejemplo.com" },
     update: {},
     create: {
@@ -55,6 +55,22 @@ async function main() {
       descripcion: "Acceso ilimitado a clases por 30 días.",
       precio: 15000,
       duracionDias: 30,
+    },
+  });
+
+  // Sin una suscripción vigente el cliente de ejemplo no puede reservar
+  // (docs/spec.md, sección 6), y el flujo principal no se podría mostrar.
+  const hoy = new Date();
+  const enUnAno = new Date(hoy.getTime() + 365 * 24 * 60 * 60 * 1000);
+  await prisma.suscripcion.upsert({
+    where: { id: "suscripcion-cliente-ejemplo" },
+    update: {},
+    create: {
+      id: "suscripcion-cliente-ejemplo",
+      clienteId: cliente.id,
+      planId: "plan-mensual-ejemplo",
+      fechaInicio: hoy,
+      fechaFin: enUnAno,
     },
   });
 

@@ -49,6 +49,20 @@ cupo, cancelación anticipada) salen directo de la sección 6 de `docs/spec.md`.
 El resto de los endpoints aplica las reglas de autorización y pertenencia de la
 sección "Autenticación y permisos"; las validaciones de Zod responden `400`.
 
+### El servicio externo no cambia el status (clase 7)
+
+`POST /api/reservas` responde `201` **con mail o sin mail**: el correo de
+confirmación es accesorio (`docs/spec.md`, sección 8). La respuesta agrega
+`confirmacionEnviada: boolean`. Si Resend falla, tarda más de 5 segundos o no
+está configurado, la reserva queda creada igual y `confirmacionEnviada` es
+`false`; el detalle va a `console.error`. Nunca se responde `500` ni `502` por
+el mail.
+
+Las reglas de reservar y cancelar viven en `lib/casos/` (clase 12) y las usan
+tanto estos endpoints como las Server Actions de la interfaz. Cada puerta
+traduce el motivo del rechazo: la API a un status de esta tabla, el
+formulario a un mensaje arriba de los campos.
+
 ### Por qué 409 y no 400
 
 En los cuatro casos de regla el `body` del request es perfecto: el `claseId`

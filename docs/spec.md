@@ -6,9 +6,9 @@
 
 ## 1. El problema
 
-**Para quién:** <a quién le sirve este sistema>
-**Qué hace hoy sin el sistema:** <cómo resuelve hoy ese problema — planilla, papel, WhatsApp>
-**Qué mejora:** <en una oración>
+**Para quién:** gimnasios chicos y sus socios.
+**Qué hace hoy sin el sistema:** coordinan las reservas de clases por WhatsApp o en papel.
+**Qué mejora:** se terminan las clases sobrevendidas y los socios que viajan al gimnasio y se quedan sin lugar.
 
 ## 2. Roles
 
@@ -45,9 +45,30 @@ Criterios de aceptación:
 
 El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM).
 
-1.
-2.
-3.
+1. El administrador da de alta una clase en la grilla semanal (día, horario, profesor y cupo).
+2. El cliente consulta la grilla y elige una clase.
+3. El cliente elige una de las próximas fechas de esa clase y confirma la reserva.
+4. El sistema valida suscripción vigente, superposición y cupo; si algo falla, explica el motivo.
+5. El cliente ve la confirmación de la reserva (y, si el correo responde, la recibe por mail).
+6. El cliente consulta "Mis reservas" y, si falta más de 2 horas, cancela la reserva.
+
+### Mapa de pantallas (clase 10)
+
+Las direcciones se deciden acá y no las inventa un asistente: si cambian, se rompen los enlaces ya mandados.
+
+| Paso | Pantalla | Dirección | Quién la puede abrir |
+|---|---|---|---|
+| — | Ingresar con Google | `/ingresar` | Cualquiera, sin sesión |
+| 1 | Nueva clase (formulario) | `/admin/clases/nueva` | `ADMINISTRADOR` |
+| 2 | Grilla semanal (home) | `/` | Cualquier usuario con sesión |
+| 2 y 3 | Detalle de la clase, con el formulario de reserva | `/clases/:id` | Cualquier usuario con sesión; solo `CLIENTE` ve el formulario |
+| 4 | No es una pantalla: el rechazo aparece arriba del formulario de `/clases/:id` | — | — |
+| 5 | Detalle de la reserva (confirmación) | `/reservas/:id` | `CLIENTE` dueño de la reserva, `ADMINISTRADOR` |
+| 6 | Mis reservas | `/reservas` | `CLIENTE` |
+| 6 | Cancelar: botón dentro de `/reservas/:id` | — | `CLIENTE` dueño, `ADMINISTRADOR` |
+| — | Galería de componentes | `/sistema` | Cualquier usuario con sesión |
+
+Una reserva ajena y una inexistente muestran la misma pantalla de "no encontrado" (mismo criterio que el `404` de la API).
 
 ## 6. Reglas de negocio
 
@@ -77,9 +98,9 @@ que hayan construido.
 Los cinco criterios del material de la clase 2, convertidos en algo **medible**. Reemplacen los
 ejemplos por los de su dominio: lo que importa es que se pueda verificar, no que suene bien.
 
-- **Eficiencia:** <la tarea principal> se hace en <N> interacciones o menos.
+- **Eficiencia:** reservar una clase se hace en 3 interacciones o menos desde la home (elegir la clase, elegir la fecha, confirmar).
 - **Errores:** si falta un campo obligatorio, se señala el campo y no se pierde lo ya cargado.
-- **Aprendizaje:** alguien que nunca vio el sistema puede <la tarea principal> sin que le expliquen.
+- **Aprendizaje:** alguien que nunca vio el sistema puede reservar una clase sin que le expliquen.
 - **Recuerdo:** el flujo principal está a un clic desde la home y siempre en el mismo lugar.
 - **Satisfacción:** se prueba con una persona de afuera del equipo antes del Demo Day.
 
@@ -95,9 +116,16 @@ Esta lista es **igual para todos los proyectos**: no hay que adaptarla, hay que 
 
 ## 8. Integración externa
 
-**Cuál:** <storage / email / pagos / mapas / IA>
-**Para qué:** <qué resuelve en el producto>
-**Qué pasa si se cae:** <plan de contingencia>
+**Cuál:** correo transaccional con [Resend](https://resend.com), llamado solo desde `lib/servicios/correo.ts`.
+**Para qué:** mandarle al cliente la confirmación de su reserva (clase, fecha y horario) por mail.
+**Qué pasa si se cae:** la reserva **igual se confirma**. Lo que vale es el registro en la base, no el mail: el cliente la ve en pantalla y en "Mis reservas".
+
+| Operación | Servicio externo | Si no responde… | ¿Esencial o accesorio? | Qué ve el usuario |
+|---|---|---|---|---|
+| Reservar una clase | Resend (mail de confirmación) | La reserva queda `CONFIRMADA`; no sale el mail. La API responde `201` con `confirmacionEnviada: false` | Accesorio | "Tu reserva está confirmada. No pudimos mandarte el mail de confirmación; la reserva está guardada en Mis reservas." |
+| Iniciar sesión (clase 6) | Google | No entra nadie | Esencial | La pantalla de error de Google; no hay forma de operar sin sesión |
+
+Reglas del módulo (clase 7): timeout de 5 segundos, devuelve `true`/`false` y nunca lanza, la credencial (`RESEND_API_KEY`) se lee solo ahí y sin prefijo `NEXT_PUBLIC_`, y toda falla se loguea con `console.error`. La llamada va **después** de crear la reserva, nunca antes. Las pruebas de la falla (credencial rota, servicio que tarda, sin configuración) están documentadas en `docs/api.http`.
 
 ## 9. Fuera de alcance
 

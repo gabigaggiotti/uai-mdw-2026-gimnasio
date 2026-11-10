@@ -16,3 +16,9 @@ docs/.env
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pruebas e2e (Playwright)
+.next-e2e/
+test-results/
+playwright-report/
+blob-report/

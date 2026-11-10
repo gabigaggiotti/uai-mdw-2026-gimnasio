@@ -19,7 +19,7 @@
 
 ## Puesta en marcha
 
-Requisitos: Node 20+, npm, y una base de datos: **Postgres** (Supabase) o **MongoDB** (Atlas). Las dos tienen plan gratuito.
+Requisitos: **Node 22** (el mismo que el CI; Prisma y Next.js no instalan con Node 18.15 o anterior), npm, y una base de datos: **Postgres** (Supabase) o **MongoDB** (Atlas). Las dos tienen plan gratuito.
 
 ```bash
 npm install
@@ -50,23 +50,57 @@ npx auth secret
 | `npm run build`          | Build de producción (lo mismo que corre Vercel) |
 | `npm run lint`           | Lint                                            |
 | `npm run typecheck`      | Chequeo de tipos sin emitir                     |
-| `npm test`               | Tests                                           |
+| `npm test`               | Pruebas de dominio (vitest, sin base)           |
+| `npm run test:e2e`       | Flujo principal y permisos (Playwright)         |
 | `npx prisma migrate dev` | Crear y aplicar una migración                   |
 | `npx prisma studio`      | Ver y editar los datos a mano                   |
 | `npm run db:seed`        | Cargar datos de ejemplo                         |
+
+## Pruebas
+
+Tres capas (detalle en la sección Pruebas de [`AGENTS.md`](./AGENTS.md)):
+
+- `npm test`: las reglas de negocio, sin base ni red.
+- `npm run test:e2e`: el flujo principal con navegador (`e2e/flujo-principal.spec.ts`) y los permisos contra la API (`e2e/permisos.spec.ts`).
+
+Las e2e **borran la base**, así que corren solo contra un Postgres local con las variables de `.env.e2e`; `playwright.config.ts` se niega a arrancar si la base no es local. Para levantarla con Docker:
+
+```bash
+docker run --name gimnasio-e2e -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=gimnasio_e2e -p 5433:5432 -d postgres:16
+```
+
+La primera vez, bajar el navegador de Playwright:
+
+```bash
+npx playwright install chromium
+```
+
+Y después:
+
+```bash
+npm run test:e2e
+```
+
+Para mirarlas correr: `npx playwright test --ui`. Si una falla, el recorrido grabado se abre con `npx playwright show-trace test-results/<carpeta>/trace.zip`.
+
+El CI corre las dos capas en cada Pull Request (trabajos `verificar` y `e2e`). Para que el rojo impida algo: en GitHub, **Settings → Rulesets → New branch ruleset**, rama por defecto, **Require status checks to pass** con `verificar` y `e2e`, y **Enforcement status: Active**.
 
 ## Estructura
 
 ```
 app/                    rutas (App Router)
-  (public)/             páginas sin sesión
-  (app)/                páginas con sesión
+  (public)/             páginas sin sesión (/ingresar)
+  (app)/                páginas con sesión: grilla, clases, reservas, admin, /sistema
   api/                  Route Handlers
-components/             componentes de UI
+components/             componentes del dominio (navegación, buscador, campo…)
+  ui/                   componentes base de shadcn/ui
 lib/
   db/                   acceso a datos — ÚNICO lugar que habla con Prisma
+  casos/                casos de uso compartidos por la API y las Server Actions
+  servicios/            servicios externos (correo con Resend) — timeout y sin throw
   schemas/              schemas de Zod (validación + tipos)
   auth.ts               configuración de sesión y roles
+e2e/                    pruebas de Playwright (flujo y permisos)
 prisma/
   schema.prisma         modelo de datos
   seed.ts               datos de ejemplo

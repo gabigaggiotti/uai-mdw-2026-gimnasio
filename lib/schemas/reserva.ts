@@ -16,7 +16,7 @@ export const crearReservaSchema = z.object({
   claseId: z.string().cuid("claseId no es válido"),
   fecha: z
     .coerce
-    .date()
+    .date({ errorMap: () => ({ message: "Elegí una fecha" }) })
     .refine((fecha) => fecha.getTime() > Date.now(), {
       message: "No se puede reservar una fecha pasada",
     }),

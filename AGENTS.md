@@ -40,7 +40,9 @@ Lo que el sistema tiene que hacer está en [`docs/spec.md`](./docs/spec.md): ent
 npm run dev          # desarrollo
 npm run build        # build de producción
 npm run typecheck    # chequeo de tipos
-npm test         # tests
+npm run lint         # lint
+npm test             # pruebas de dominio (vitest, sin base)
+npm run test:e2e     # flujo principal y permisos (Playwright, base local)
 npx prisma migrate dev --name <nombre>
 ```
 
@@ -52,10 +54,17 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 | -------------------------- | ----------------------------------------------------------------- |
 | Una página                 | `app/(public)/` si es sin sesión, `app/(app)/` si requiere sesión |
 | Un endpoint                | `app/api/<recurso>/route.ts`                                      |
-| Un componente reutilizable | `components/`                                                     |
+| Una Server Action          | `acciones.ts` al lado de la página que la usa, con `"use server"` |
+| Un formulario              | `formulario.tsx` (o un nombre propio) al lado de su `page.tsx`    |
+| Un componente base de UI   | `components/ui/` (shadcn/ui). No sabe nada del dominio            |
+| Un componente del dominio  | `components/` (sabe qué es una clase, una reserva, un rol)        |
 | Una consulta a la base     | `lib/db/<entidad>.ts`                                             |
+| Una regla de negocio pura  | `lib/<dominio>.ts`, con su `lib/<dominio>.test.ts`                |
+| Un caso de uso con dos puertas (API + Server Action) | `lib/casos/<verbo-entidad>.ts`          |
+| Una llamada a un servicio externo | `lib/servicios/<cual>.ts`                                  |
 | Un schema de validación    | `lib/schemas/<entidad>.ts`                                        |
 | Un helper sin dependencias | `lib/utils.ts`                                                    |
+| Una prueba e2e             | `e2e/<tema>.spec.ts`                                              |
 
 ## Reglas
 
@@ -80,16 +89,56 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 - Nunca confiar en un `userId` o un `role` que venga del cliente: se leen de la sesión.
 - Los secretos van en variables de entorno. Ninguna variable con secretos lleva el prefijo `NEXT_PUBLIC_`.
 
+### Servicios externos
+
+- **Todo servicio de terceros se llama solo desde `lib/servicios/<cual>.ts`**, y ese archivo es el único que lee su credencial de `process.env`.
+- Ninguna llamada a un tercero sin timeout (`AbortSignal.timeout`). Hoy: 5 segundos.
+- El módulo **devuelve, no lanza**: el resultado o `null`/`false`, y loguea la falla con `console.error`.
+- Si el servicio es accesorio (`docs/spec.md`, sección 8), la llamada va **después** de la operación principal y su falla no cambia el status de la respuesta.
+
 ### React / Next
 
-- Los componentes son Server Components por defecto. `"use client"` solo si hay estado, efectos o eventos del navegador.
-- Un componente por archivo, en PascalCase. Los archivos de utilidades, en camelCase.
-- Los estados de carga y de error se resuelven siempre; no dejar la pantalla en blanco.
+- Los componentes son Server Components por defecto. `"use client"` solo si hay estado, efectos o eventos del navegador, y en el componente más chico posible (nunca arriba de una página entera).
+- Las páginas leen datos con `await` a `lib/db/`, **nunca con `fetch` a la API propia**. La consulta lleva el id de la sesión.
+- Las fechas se formatean en el servidor y al cliente viaja el texto (`lib/utils.ts#formatearDia`).
+- Un componente por archivo. El componente exportado va en PascalCase; el archivo, en kebab-case como los genera shadcn/ui (`components/sin-datos.tsx` exporta `SinDatos`). Los archivos de utilidades, en camelCase.
+- Los estados de carga y de error se resuelven siempre; no dejar la pantalla en blanco: `loading.tsx`, `error.tsx`, el vacío con `SinDatos` y el "sin resultados" en el componente que filtra.
+- Las páginas con sesión van en `app/(app)/` y vuelven a pedir el usuario aunque el layout ya redirija: el layout no es seguridad. `notFound()` para "no existe" y para "no es tuya", con el mismo texto.
+
+### Formularios (Server Actions)
+
+- Una Server Action es un endpoint público: **la primera línea es `requerirUsuario([...roles])`**.
+- Ningún id que salga de la sesión o de la URL viaja en el formulario: el usuario sale de la sesión y el id del recurso llega con `.bind`.
+- Se valida con el mismo schema de `lib/schemas/` que usa el Route Handler, y las reglas se llaman desde el mismo `lib/casos/`.
+- Errores de validación debajo del campo (`errores`), rechazo de una regla arriba del formulario (`mensaje`). El formulario no se vacía al fallar (`valores`). Tipo: `lib/formularios.ts`.
+- El botón se deshabilita mientras `pendiente` y dice "Guardando…".
+- Toda acción que escribe llama a `revalidatePath` con las pantallas que quedaron viejas, y `redirect` va al final.
+- Todo campo usa `components/campo.tsx` (label conectado, `aria-describedby`, `aria-invalid`).
+- Mobile-first: las clases sin prefijo son el teléfono; `sm:` agrega lo ancho. `<select>` nativo, `inputMode="numeric"` en vez de `type="number"`, botón principal a lo ancho en el teléfono.
 
 ### Estilos
 
 - Solo Tailwind. Nada de CSS suelto ni estilos inline salvo valores calculados en runtime.
-- Los componentes de UI base salen de shadcn/ui y se editan en `components/ui/`.
+- Los componentes de UI base salen de shadcn/ui y se editan en `components/ui/`. Ningún borde, radio ni sombra escrito a mano en `app/`: se usa `Card`, `Button`, etc.
+- Los colores y el radio son tokens en `app/globals.css`. Ningún estado se comunica solo con color: siempre hay texto.
+- Un componente nuevo se agrega primero a la galería `/sistema` (`app/(app)/sistema/page.tsx`), con todos sus estados.
+
+## Pruebas
+
+| Capa | Qué contesta | Dónde | Con qué |
+|---|---|---|---|
+| Dominio | ¿La regla calcula bien? | `lib/**/*.test.ts` | vitest, sin base ni red (`npm test`) |
+| Permisos | ¿El servidor dice que no aunque nadie pase por la pantalla? | `e2e/permisos.spec.ts` | Playwright contra la API |
+| Flujo | ¿Se recorre el flujo principal entero, de una persona a otra? | `e2e/flujo-principal.spec.ts` | Playwright con navegador |
+
+- **Cuándo se actualiza cada una:** si cambia una regla de la sección 6 de la spec, su prueba en `lib/*.test.ts`. Si cambia quién puede hacer qué o hay un endpoint nuevo en `docs/api.md`, un caso en `e2e/permisos.spec.ts`. Si cambia el recorrido de la sección 5, `e2e/flujo-principal.spec.ts`.
+- **El valor esperado sale de la spec o del contrato, nunca de correr el código y copiar lo que dio.** Si una prueba falla, se arregla el código, no el valor esperado.
+- Toda prueba nueva se ve fallar una vez (se saca lo que prueba, se ve en rojo, se vuelve a poner) y se cuenta en el PR.
+- Las pruebas buscan como una persona: `getByRole`, `getByLabel`, `getByText`. Nunca por id ni por clase de CSS. Nada de `sleep`: `expect(...).toBeVisible()` espera solo.
+- Las e2e corren **solo contra una base local** (`.env.e2e`); `playwright.config.ts` se niega a arrancar si no lo es.
+- **Prohibido un "modo prueba"**, un usuario mágico o un `if (process.env.E2E)` en la app. Las sesiones de prueba se fabrican afuera (`e2e/sesiones.ts`) con el secreto de `.env.e2e`.
+- Las funciones de reglas reciben el "ahora" por parámetro, para poder probarse sin congelar el reloj.
+- El CI (`.github/workflows/ci.yml`) corre `verificar` (tipos, lint, dominio) y `e2e` en cada PR; los dos son obligatorios para mergear a `main`.
 
 ### Git
 
@@ -103,3 +152,5 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 - Cambios chicos y enfocados. No refactorices archivos que no tienen que ver con la tarea.
 - Antes de crear un helper nuevo, buscá si ya existe uno en `lib/`.
 - Cuando toques algo de seguridad o del modelo de datos, explicá el porqué del cambio: son las dos áreas que se revisan línea por línea.
+- **Antes de entregar un cambio, corré vos los sensores**: `npm run typecheck`, `npm run lint` y `npm test` (y `npm run test:e2e` si tocaste pantallas, permisos o el flujo). Si alguno falla, el cambio no está terminado. Contá en la respuesta qué corriste y qué dio.
+- Nunca corras comandos que borren o reseteen una base (`prisma migrate reset`, `db push --force-reset`, `TRUNCATE`) contra una URL que no sea local. Si no estás seguro de a qué base apunta una variable, preguntá.

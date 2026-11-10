@@ -89,3 +89,47 @@ POST {{base}}/reservas/{{reservaExistenteId}}/cancelacion
 
 ### 9. Cancelar una reserva que no existe → 404
 POST {{base}}/reservas/cl0000000000000000000000/cancelacion
+
+### ─────────────────────────────────────────────────────────────────────
+### Clase 7 — el servicio externo (correo de confirmación con Resend)
+### El mail es ACCESORIO (docs/spec.md, sección 8): si falla, la reserva
+### se confirma igual. Estas pruebas se hacen cambiando .env.local y
+### reiniciando `npm run dev`.
+### ─────────────────────────────────────────────────────────────────────
+
+### 10. Credencial rota: cambiar una letra de RESEND_API_KEY.
+### Se espera: 201 con la reserva creada y "confirmacionEnviada": false.
+### En la consola del servidor: "correo: el proveedor rechazó el envío 401 ...".
+### La reserva aparece en GET /api/reservas: el sistema quedó consistente.
+POST {{base}}/reservas
+Cookie: {{sesionCliente}}
+Content-Type: application/json
+
+{
+  "claseId": "{{claseId}}",
+  "fecha": "2026-12-29T00:00:00.000Z"
+}
+
+### 11. Servicio que tarda: CORREO_API_URL="https://10.255.255.1/emails".
+### Se espera: la respuesta llega en ~5 segundos (el timeout), no se queda
+### colgada; 201 con "confirmacionEnviada": false y en la consola
+### "correo: no se pudo enviar la confirmación TimeoutError ...".
+POST {{base}}/reservas
+Cookie: {{sesionCliente}}
+Content-Type: application/json
+
+{
+  "claseId": "{{claseId}}",
+  "fecha": "2027-01-05T00:00:00.000Z"
+}
+
+### 12. Sin configuración: borrar RESEND_API_KEY.
+### Se espera: 201 con "confirmacionEnviada": false, sin llamar al proveedor.
+POST {{base}}/reservas
+Cookie: {{sesionCliente}}
+Content-Type: application/json
+
+{
+  "claseId": "{{claseId}}",
+  "fecha": "2027-01-12T00:00:00.000Z"
+}
