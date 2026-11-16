@@ -24,22 +24,63 @@ Los sustantivos que aparecen en las historias de usuario. De acá sale el modelo
 
 | Entidad | Qué representa | Se relaciona con |
 |---|---|---|
-| | | |
+| Usuario | Persona con cuenta (Google); su `rol` define qué puede hacer | Tiene reservas, suscripciones, lesiones y rutinas; opcionalmente un perfil de Profesor |
+| Profesor | Perfil del usuario con rol PROFESOR (especialidad, teléfono) | 1-1 con Usuario; dicta muchas Clases |
+| Plan | Tipo de membresía (precio, duración en días, clases por semana) | Tiene muchas Suscripciones |
+| Clase | Actividad de la grilla semanal (día, horario, cupo máximo, salón) | Pertenece a un Profesor; tiene muchas Reservas |
+| Reserva | Lugar que un cliente toma en una clase para una fecha (CONFIRMADA, CANCELADA o ASISTIO) | Pertenece a un Usuario (cliente) y a una Clase |
+| Suscripción | Plan contratado por un cliente, con fecha de inicio y de fin (ACTIVA, VENCIDA o CANCELADA) | Pertenece a un Usuario y a un Plan; tiene muchas Cuotas |
+| Cuota | Pago registrado de una suscripción (fecha, modo de pago, monto, período) | Pertenece a una Suscripción |
+| Lesión | Lesión registrada de un cliente (zona, gravedad, estado) | Pertenece a un Usuario (cliente) |
+| Rutina | Plan de entrenamiento de un cliente (ACTIVA o INACTIVA) | Pertenece a un Usuario; tiene muchos ejercicios a través de RutinaEjercicio |
+| Ejercicio | Ejercicio del catálogo (nombre, grupo muscular) | Se usa en muchas Rutinas a través de RutinaEjercicio |
+| RutinaEjercicio | Relación N-N entre Rutina y Ejercicio, con series, repeticiones y orden | Pertenece a una Rutina y a un Ejercicio |
+
+Relaciones 1-N: Profesor→Clases, Clase→Reservas, Plan→Suscripciones, Suscripción→Cuotas. Relación N-N con atributos propios: Rutina↔Ejercicio (`RutinaEjercicio`). El modelo está en `prisma/schema.prisma`.
 
 ## 4. Historias de usuario
 
 Formato: **Como** <rol>, **quiero** <acción>, **para** <beneficio>.
 Cada historia lleva su criterio de aceptación: cómo se verifica que está terminada.
 
-### H1 — <título>
-**Como** …, **quiero** …, **para** …
+### H1 — Publicar una clase en la grilla
+**Como** administrador, **quiero** dar de alta una clase con día, horario, profesor y cupo, **para** que los clientes puedan reservarla.
 
 Criterios de aceptación:
-- [ ] Dado <contexto>, cuando <acción>, entonces <resultado esperado>
-- [ ] Caso de error: cuando <situación inválida>, el sistema <qué hace>
+- [ ] Dado un administrador con sesión, cuando completa el formulario de `/admin/clases/nueva` con datos válidos, entonces la clase queda creada y se muestra su detalle.
+- [ ] Caso de error: cuando el nombre tiene menos de 3 caracteres, el sistema muestra el mensaje debajo del campo y no vacía lo ya cargado.
 
-### H2 — <título>
-…
+Verificada por: `e2e/flujo-principal.spec.ts`, paso 1.
+
+### H2 — Reservar un lugar en una clase
+**Como** cliente, **quiero** reservar un lugar en una clase con cupo, **para** asegurarme de que tengo sitio al llegar.
+
+Criterios de aceptación:
+- [ ] Dado un cliente con suscripción vigente y una clase con cupo, cuando confirma la reserva, entonces la reserva queda `CONFIRMADA` y ve la confirmación en pantalla.
+- [ ] Caso de error: cuando no tiene suscripción vigente, el sistema rechaza con "Necesitás una suscripción o cuota activa para reservar".
+- [ ] Caso de error: cuando ya tiene otra reserva en el mismo día y horario, o la clase no tiene cupo, el sistema rechaza y explica el motivo (reglas 2 y 3 de la sección 6).
+- [ ] Caso de error: cuando el mail de confirmación no se puede enviar, la reserva igual queda confirmada y se avisa que el mail no salió (sección 8).
+
+Verificada por: `lib/reservas.test.ts` (reglas) y `e2e/flujo-principal.spec.ts`, pasos 3, 4 y 5.
+
+### H3 — Cancelar una reserva
+**Como** cliente, **quiero** cancelar una reserva desde "Mis reservas", **para** liberar el lugar si no puedo ir.
+
+Criterios de aceptación:
+- [ ] Dado una reserva confirmada que empieza en más de 2 horas, cuando el cliente la cancela, entonces pasa a `CANCELADA` y deja de ofrecerse el botón de cancelar.
+- [ ] Caso de error: cuando faltan menos de 2 horas, el sistema rechaza con "Ya no se puede cancelar: faltan menos de 2 horas para la clase".
+- [ ] Caso de error: cuando la reserva ya estaba cancelada, el sistema rechaza con "La reserva ya está cancelada".
+
+Verificada por: `lib/reservas.test.ts` (regla de las 2 horas) y `e2e/flujo-principal.spec.ts`, paso 6.
+
+### H4 — Ver solo mis propios datos
+**Como** cliente, **quiero** que mis reservas, suscripciones y cuotas no sean visibles para otros clientes, **para** proteger mi información.
+
+Criterios de aceptación:
+- [ ] Dado un cliente con sesión, cuando abre una reserva que pertenece a otro cliente, entonces ve la misma pantalla de "no encontrado" que para una reserva inexistente (`404` en la API).
+- [ ] Caso de error: cuando no hay sesión, una pantalla privada redirige a `/ingresar` y la API responde `401`; con sesión pero sin el rol permitido, la API responde `403`.
+
+Verificada por: `e2e/flujo-principal.spec.ts` y `e2e/permisos.spec.ts`.
 
 ## 5. Flujo principal
 
@@ -74,8 +115,19 @@ Una reserva ajena y una inexistente muestran la misma pantalla de "no encontrado
 
 Las restricciones que **no** son obvias y que la IA no puede adivinar. Estas son las que hay que revisar a mano.
 
-- <ej: un turno no puede superponerse con otro del mismo profesional>
-- <ej: solo el creador o un administrador puede cancelar>
+Reglas de la reserva y de la suscripción. Cada una vive como función pura en `lib/reservas.ts` o `lib/suscripciones.ts`, con su prueba en `lib/*.test.ts`, y se llama desde `lib/db/reservas.ts`. Todas responden `409` (el pedido es válido; lo que falla es el estado del sistema), según `docs/api.md`.
+
+1. **Suscripción activa obligatoria.** Un cliente no puede reservar sin al menos una suscripción vigente: estado `ACTIVA` y `fechaFin` no vencida.
+2. **Sin superposición de turnos.** Un cliente no puede tener dos reservas confirmadas que coincidan en el mismo día y rango horario, aunque sean clases distintas.
+3. **Límite de capacidad.** Se puede reservar solo si las reservas confirmadas de esa clase y esa fecha son menos que su `cupoMaximo`. Cancelar una reserva libera el lugar.
+4. **Cancelación anticipada.** Una reserva solo puede cancelarse hasta 2 horas antes del inicio de la clase.
+
+Otras reglas que ya implementa el sistema:
+
+5. **La fecha de fin de una suscripción la calcula el servidor.** Se obtiene de la fecha de inicio más `plan.duracionDias`; el cliente nunca la envía (`lib/db/suscripciones.ts`).
+6. **Pagar una cuota extiende la suscripción.** Registrar una cuota suma `plan.duracionDias` a la `fechaFin` y deja la suscripción `ACTIVA`, en una sola transacción (`lib/db/cuotas.ts`).
+7. **Una sola rutina activa por cliente.** Al activar una rutina, las demás rutinas activas de ese cliente pasan a `INACTIVA` en la misma transacción (`lib/db/rutinas.ts`).
+8. **Solo el dueño o un administrador gestiona una reserva.** Un cliente solo puede consultar y cancelar sus propias reservas; un administrador, cualquiera.
 
 ### Autenticación y autorización (clase 6)
 
