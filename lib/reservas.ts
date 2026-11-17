@@ -72,8 +72,17 @@ export function haySuperposicionDeTurnos(
 }
 
 /**
+ * Las horas de la grilla ("18:00") son hora del gimnasio, en Argentina:
+ * UTC-3 todo el año, sin horario de verano. La fecha de la clase se guarda
+ * como medianoche UTC de ese día, así que para obtener el instante real
+ * de inicio hay que sumarle 3 horas a la hora de la grilla.
+ */
+export const DESFASE_GIMNASIO_HORAS = 3;
+
+/**
  * "Cancelación anticipada": la cancelación solo se permite hasta
- * `horasDeAnticipacion` (2hs, por spec) antes del inicio de la clase.
+ * `horasDeAnticipacion` (2hs, por spec) antes del inicio de la clase,
+ * medido en la hora del gimnasio.
  */
 export function puedeCancelarseConAnticipacion(
   fechaClase: Date,
@@ -83,7 +92,7 @@ export function puedeCancelarseConAnticipacion(
 ): boolean {
   const [horas, minutos] = horaInicioClase.split(":").map(Number);
   const inicio = new Date(fechaClase);
-  inicio.setUTCHours(horas ?? 0, minutos ?? 0, 0, 0);
+  inicio.setUTCHours((horas ?? 0) + DESFASE_GIMNASIO_HORAS, minutos ?? 0, 0, 0);
   const limite = new Date(inicio.getTime() - horasDeAnticipacion * 60 * 60 * 1000);
   return ahora <= limite;
 }
