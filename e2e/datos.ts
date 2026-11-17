@@ -23,6 +23,8 @@ export const IDS = {
   suscripcionOtroCliente: "ce2esuscripcion0002",
   clase: "ce2eclasespinning01",
   reservaOtroCliente: "ce2ereservaotro0001",
+  // Del cliente y cancelable: la usa e2e/concurrencia.spec.ts.
+  reservaCliente: "ce2ereservaclie0001",
   lesionOtroCliente: "ce2elesionotro00001",
   rutinaOtroCliente: "ce2erutinaotro00001",
 } as const;

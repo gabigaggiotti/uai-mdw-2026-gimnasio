@@ -7,13 +7,13 @@
  * ADMINISTRADOR (alcance global), igual que en lib/db/reservas.ts.
  */
 import { cancelarReserva, obtenerReserva } from "@/lib/db/reservas";
-import { CancelacionFueraDeTiempoError } from "@/lib/db/errors";
+import { CancelacionFueraDeTiempoError, ReservaYaCanceladaError } from "@/lib/db/errors";
 
 export type MotivoRechazoCancelacion = "NO_ENCONTRADA" | "YA_CANCELADA" | "FUERA_DE_TIEMPO";
 
 export const MENSAJE_RECHAZO_CANCELACION: Record<MotivoRechazoCancelacion, string> = {
   NO_ENCONTRADA: "No encontrado",
-  YA_CANCELADA: "La reserva ya está cancelada",
+  YA_CANCELADA: new ReservaYaCanceladaError().message,
   FUERA_DE_TIEMPO: new CancelacionFueraDeTiempoError().message,
 };
 
@@ -29,6 +29,9 @@ export async function cancelarReservaDe(
 ): Promise<ResultadoCancelacion> {
   const reserva = await obtenerReserva(id, clienteId);
   if (!reserva) return { ok: false, motivo: "NO_ENCONTRADA" };
+  // Atajo para el caso común (alguien vuelve a una reserva ya cancelada).
+  // NO alcanza con dos pedidos simultáneos: lo garantiza el where del
+  // UPDATE en lib/db/reservas.ts, que lanza ReservaYaCanceladaError.
   if (reserva.estado === "CANCELADA") return { ok: false, motivo: "YA_CANCELADA" };
 
   try {
@@ -37,6 +40,7 @@ export async function cancelarReservaDe(
     return { ok: true, reserva: cancelada };
   } catch (error) {
     if (error instanceof CancelacionFueraDeTiempoError) return { ok: false, motivo: "FUERA_DE_TIEMPO" };
+    if (error instanceof ReservaYaCanceladaError) return { ok: false, motivo: "YA_CANCELADA" };
     throw error;
   }
 }

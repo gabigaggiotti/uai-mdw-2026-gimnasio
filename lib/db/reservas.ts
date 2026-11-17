@@ -12,6 +12,7 @@ import type { CrearReservaInput } from "@/lib/schemas/reserva";
 import {
   CancelacionFueraDeTiempoError,
   CupoAgotadoError,
+  ReservaYaCanceladaError,
   SinSuscripcionVigenteError,
   SuperposicionDeTurnosError,
 } from "@/lib/db/errors";
@@ -98,11 +99,19 @@ export async function cancelarReserva(id: string, clienteId?: string) {
   // No es un PATCH { estado: "CANCELADA" }: además de cambiar el estado,
   // libera el cupo (que se recalcula contando CONFIRMADA, así que
   // cancelar ya lo libera solo) y registra cuándo se canceló.
+  //
+  // `estado: "CONFIRMADA"` va DENTRO del where, no en un if previo: con dos
+  // cancelaciones simultáneas, las dos leen la reserva CONFIRMADA antes de
+  // que ninguna escriba. Postgres bloquea la fila durante el UPDATE y el
+  // segundo vuelve a evaluar el where con la fila ya CANCELADA: no la
+  // encuentra y cuenta 0 (ver e2e/concurrencia.spec.ts).
   const actualizada = await prisma.reserva.updateMany({
-    where: { id, ...(clienteId ? { clienteId } : {}) },
+    where: { id, estado: "CONFIRMADA", ...(clienteId ? { clienteId } : {}) },
     data: { estado: "CANCELADA", canceladaEn: new Date() },
   });
 
-  if (actualizada.count === 0) return null;
+  // La reserva existía (se leyó arriba) y las reservas no se borran: si no
+  // se actualizó ninguna fila, es porque otro pedido ya la había cancelado.
+  if (actualizada.count === 0) throw new ReservaYaCanceladaError();
   return obtenerReserva(id, clienteId);
 }

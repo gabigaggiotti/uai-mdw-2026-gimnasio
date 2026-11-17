@@ -75,6 +75,10 @@ export default async function preparar() {
     await prisma.reserva.create({
       data: { id: IDS.reservaOtroCliente, clienteId: USUARIOS.otroCliente.id, claseId: IDS.clase, fecha: enUnaSemana },
     });
+    // Del cliente, a una semana: se puede cancelar (faltan más de 2 horas).
+    await prisma.reserva.create({
+      data: { id: IDS.reservaCliente, clienteId: USUARIOS.cliente.id, claseId: IDS.clase, fecha: enUnaSemana },
+    });
     await prisma.lesion.create({
       data: {
         id: IDS.lesionOtroCliente,
