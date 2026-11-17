@@ -58,6 +58,17 @@ async function main() {
     },
   });
 
+  await prisma.ejercicio.upsert({
+    where: { id: "ejercicio-press-banca-ejemplo" },
+    update: {},
+    create: {
+      id: "ejercicio-press-banca-ejemplo",
+      nombre: "Press de banca",
+      grupoMuscular: "Pecho",
+      descripcion: "Ejercicio de empuje para fortalecer el pecho.",
+    },
+  });
+
   // Sin una suscripción vigente el cliente de ejemplo no puede reservar
   // (docs/spec.md, sección 6), y el flujo principal no se podría mostrar.
   const hoy = new Date();
