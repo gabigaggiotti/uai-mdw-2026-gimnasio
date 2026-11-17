@@ -64,22 +64,33 @@ describe("haySuperposicionDeTurnos", () => {
 });
 
 describe("puedeCancelarseConAnticipacion", () => {
-  // La clase empieza a las 18:00 del 2026-10-06.
+  // La clase empieza a las 18:00 hora Argentina del 2026-10-06, que son las
+  // 21:00 UTC. El límite para cancelar es 16:00 Argentina (19:00 UTC).
   const fechaClase = new Date("2026-10-06T00:00:00.000Z");
   const horaInicio = "18:00";
 
-  it("funciona: cancela a las 10:00, bastante más de 2hs antes", () => {
-    const ahora = new Date("2026-10-06T10:00:00.000Z");
+  it("funciona: cancela a las 10:00 de Argentina, bastante más de 2hs antes", () => {
+    const ahora = new Date("2026-10-06T13:00:00.000Z");
     expect(puedeCancelarseConAnticipacion(fechaClase, horaInicio, ahora)).toBe(true);
   });
 
-  it("falla: intenta cancelar a las 17:30, media hora antes", () => {
-    const ahora = new Date("2026-10-06T17:30:00.000Z");
+  it("falla: intenta cancelar a las 17:30 de Argentina, media hora antes", () => {
+    const ahora = new Date("2026-10-06T20:30:00.000Z");
     expect(puedeCancelarseConAnticipacion(fechaClase, horaInicio, ahora)).toBe(false);
   });
 
-  it("borde: exactamente 2hs antes (16:00) todavía se puede cancelar", () => {
-    const ahora = new Date("2026-10-06T16:00:00.000Z");
+  it("borde: exactamente 2hs antes (16:00 de Argentina) todavía se puede cancelar", () => {
+    const ahora = new Date("2026-10-06T19:00:00.000Z");
     expect(puedeCancelarseConAnticipacion(fechaClase, horaInicio, ahora)).toBe(true);
+  });
+
+  it("zona horaria: a las 15:30 de Argentina se puede cancelar (antes se rechazaba por tomar la hora en UTC)", () => {
+    const ahora = new Date("2026-10-06T18:30:00.000Z");
+    expect(puedeCancelarseConAnticipacion(fechaClase, horaInicio, ahora)).toBe(true);
+  });
+
+  it("zona horaria: a las 16:01 de Argentina ya no se puede cancelar", () => {
+    const ahora = new Date("2026-10-06T19:01:00.000Z");
+    expect(puedeCancelarseConAnticipacion(fechaClase, horaInicio, ahora)).toBe(false);
   });
 });
