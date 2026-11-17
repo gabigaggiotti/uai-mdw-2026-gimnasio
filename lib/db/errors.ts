@@ -32,3 +32,10 @@ export class CancelacionFueraDeTiempoError extends Error {
     this.name = "CancelacionFueraDeTiempoError";
   }
 }
+
+export class ReservaYaCanceladaError extends Error {
+  constructor(message: string = "La reserva ya está cancelada") {
+    super(message);
+    this.name = "ReservaYaCanceladaError";
+  }
+}

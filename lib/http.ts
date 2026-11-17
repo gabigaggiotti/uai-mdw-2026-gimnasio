@@ -9,6 +9,7 @@ import { NoAutenticado, NoAutorizado } from "@/lib/auth";
 import {
   CancelacionFueraDeTiempoError,
   CupoAgotadoError,
+  ReservaYaCanceladaError,
   SinSuscripcionVigenteError,
   SuperposicionDeTurnosError,
 } from "@/lib/db/errors";
@@ -30,7 +31,8 @@ export function responderError(
     error instanceof CupoAgotadoError ||
     error instanceof SinSuscripcionVigenteError ||
     error instanceof SuperposicionDeTurnosError ||
-    error instanceof CancelacionFueraDeTiempoError
+    error instanceof CancelacionFueraDeTiempoError ||
+    error instanceof ReservaYaCanceladaError
   ) {
     return NextResponse.json({ error: error.message }, { status: 409 });
   }

@@ -41,7 +41,7 @@ permitido. Para la pertenencia, `lib/db/` incluye el usuario de sesión en el
 | `POST /api/reservas`                 | Ya no hay cupo para esa clase y esa fecha                          | 409    | "No hay cupo disponible para esta clase"                               | Regla (`lib/reservas.ts`) |
 | `POST /api/reservas`                 | El `claseId` no existe                                             | 404    | "No encontrado"                                                        | Base (Prisma P2025)  |
 | `POST /api/reservas/{id}/cancelacion`| Faltan menos de 2hs para el inicio de la clase                     | 409    | "Ya no se puede cancelar: faltan menos de 2 horas para la clase"       | Regla (`lib/reservas.ts`) |
-| `POST /api/reservas/{id}/cancelacion`| La reserva ya estaba CANCELADA                                     | 409    | "La reserva ya está cancelada"                                         | Handler (ya existía) |
+| `POST /api/reservas/{id}/cancelacion`| La reserva ya estaba CANCELADA                                     | 409    | "La reserva ya está cancelada"                                         | Base: `estado` en el `where` del UPDATE (`lib/db/reservas.ts`); también con pedidos simultáneos |
 | `POST /api/reservas/{id}/cancelacion`| El `id` no existe                                                  | 404    | "No encontrado"                                                        | Handler (ya existía) |
 
 Las cuatro reglas de negocio de arriba (suscripción vigente, sin superposición,
